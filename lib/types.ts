@@ -20,7 +20,7 @@ export interface Article {
   playerName: string;
   fromTeam: string;
   toTeam: string;
-  /** 신뢰도 티어 조회에 쓰는 리그 태그 (관련 팀의 소속 리그). */
+  /** 신뢰도 티어 조회에 쓰는 리그 태그. 이적 전 소속팀(fromTeam)의 리그를 기준으로 부여한다. */
   league: string;
   certainty: Certainty;
   summary: string;
@@ -34,10 +34,16 @@ export interface Rumor {
   fromTeam: string;
   toTeam: string;
   articleIds: string[];
+  /** 이 이적설을 다룬 기자 id 목록(중복 제거). "기자별" 필터에서 포함 여부를 검사할 때 사용. */
+  journalistIds: string[];
   /** 임시 종합 신뢰 점수. lib/trustScore.ts의 1단계(단순 평균) 계산 결과. */
   score: number;
-  /** "기자별" 정렬에 쓰는 기준: 이 이적설을 다룬 기사 중 개별 신뢰 점수가 가장 높은 기자 이름. */
-  topJournalistName: string;
-  /** 관련 기사 중 가장 최근 등록 날짜. */
+  /** 관련 기사 중 가장 최근 등록 날짜 (= latestArticle.publishedAt). */
   updatedAt: string;
+  /** 카드 하단 출처 표기("n일 전 · 기자명 ↗")에 쓰는 가장 최근 기사 정보. */
+  latestArticle: {
+    journalistName: string;
+    url: string;
+    publishedAt: string;
+  };
 }

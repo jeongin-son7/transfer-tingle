@@ -1,14 +1,20 @@
 // docs/PLAN.md 7·8번(다룰 선수·팀 목록, 기자 후보 5명) 기준 더미 데이터.
-// 3차시: 이 배열을 메인 화면 카드 목록에 렌더링하고, 필터 정렬에 사용한다.
+// 3차시: 이 배열을 메인 화면 카드 목록에 렌더링하고, 필터(팀별/기자별/선수별)로 걸러낸다.
 // 6차시부터는 이 배열 대신 Supabase 쿼리 결과를 같은 타입으로 채워 넣으면 된다.
+//
+// 리그 태그 규칙: article.league는 "이적 전 소속팀(fromTeam)의 리그"를 기준으로 정한다.
+// 예) AC 밀란(세리에 A) 소속 선수가 첼시(프리미어리그)로 이적하는 기사는 league: "세리에 A".
+// 이렇게 해야 디 마르치오(세리에 A 전문)·플레텐베르크(분데스리가 전문) 같은
+// 리그 특화 기자의 티어 점수가 실제로 쓰이는 사례를 보여줄 수 있다.
 
 import type { Article, Journalist, Rumor } from "./types";
 import { calculateAggregateScore, calculateArticleScore } from "./trustScore";
 
 // docs/PLAN.md 8번 기자 후보 5명 + 임시 리그별/기본 티어 점수.
 // 로마노·오른스타인은 프리미어리그 특화라 리그 태그가 일치해 높은 점수를 받고,
-// 디 마르치오·플레텐베르크는 담당 리그가 달라 기본 티어(낮은 값)로 대체되고,
-// 카슬스는 처음부터 낮은 티어로 잡아 "신뢰도 낮은 매체" 대조군 역할을 하게 했다.
+// 디 마르치오·플레텐베르크는 각자 세리에 A·분데스리가가 전문이라 그 리그 기사에서만
+// 높은 점수를 받으며 그 외에는 기본 티어(낮은 값)로 대체된다. 카슬스는 처음부터
+// 낮은 티어로 잡아 "신뢰도 낮은 매체" 대조군 역할을 하게 했다.
 export const journalists: Journalist[] = [
   {
     id: "romano",
@@ -47,8 +53,10 @@ export const journalists: Journalist[] = [
   },
 ];
 
-// docs/PLAN.md 7번 선수 5명 기준, 선수당 2~3개씩 총 13개 기사.
-// 다룰 팀이 전부 프리미어리그 소속이라 league는 전부 "프리미어리그"로 고정.
+// docs/PLAN.md 7번 핵심 5팀·5선수 + 필터 테스트용으로 추가한 5건, 총 10명 선수
+// 기준 25개 기사. 5팀(토트넘/맨시티/맨유/리버풀/첼시)이 각각 최소 두 건 이상의
+// 이적설에 걸리도록 구성해 "팀별" 필터를 눌렀을 때 카드가 실제로 여러 개 남는지
+// 확인할 수 있게 했다.
 export const articles: Article[] = [
   // 1. 오마르 마르무시 — 맨시티 → 토트넘
   {
@@ -215,6 +223,160 @@ export const articles: Article[] = [
     summary: "토트넘이 맨시티보다 한발 앞서 협상 테이블에 나섰다고 보도.",
     publishedAt: "2026-09-01",
   },
+
+  // 6. 곤살로 라모스 — PSG → 맨체스터 유나이티드 (fromTeam 리그: 리그 1)
+  {
+    id: "a14",
+    url: "https://example.com/articles/ramos-progressing",
+    journalistId: "romano",
+    playerName: "곤살로 라모스",
+    fromTeam: "파리 생제르맹",
+    toTeam: "맨체스터 유나이티드",
+    league: "리그 1",
+    certainty: "진전",
+    summary: "맨유의 공식 오퍼가 전달됐고, PSG 내부 검토 중.",
+    publishedAt: "2026-08-24",
+  },
+  {
+    id: "a15",
+    url: "https://example.com/articles/ramos-interest",
+    journalistId: "ornstein",
+    playerName: "곤살로 라모스",
+    fromTeam: "파리 생제르맹",
+    toTeam: "맨체스터 유나이티드",
+    league: "리그 1",
+    certainty: "관심",
+    summary: "맨유가 공격수 보강 후보 중 한 명으로 검토하고 있다는 수준.",
+    publishedAt: "2026-08-18",
+  },
+  {
+    id: "a16",
+    url: "https://example.com/articles/ramos-confirmed",
+    journalistId: "castles",
+    playerName: "곤살로 라모스",
+    fromTeam: "파리 생제르맹",
+    toTeam: "맨체스터 유나이티드",
+    league: "리그 1",
+    certainty: "확정",
+    summary: "이적이 사실상 끝났다고 성급하게 단정한 보도.",
+    publishedAt: "2026-08-27",
+  },
+
+  // 7. 니코 슐로터베크 — 보루시아 도르트문트 → 리버풀 (fromTeam 리그: 분데스리가)
+  {
+    id: "a17",
+    url: "https://example.com/articles/schlotterbeck-confirmed",
+    journalistId: "plettenberg",
+    playerName: "니코 슐로터베크",
+    fromTeam: "보루시아 도르트문트",
+    toTeam: "리버풀",
+    league: "분데스리가",
+    certainty: "확정",
+    summary: "도르트문트와 리버풀이 이적료에 최종 합의했다고 보도 (독일 현지 전문 소식통).",
+    publishedAt: "2026-08-15",
+  },
+  {
+    id: "a18",
+    url: "https://example.com/articles/schlotterbeck-progressing",
+    journalistId: "romano",
+    playerName: "니코 슐로터베크",
+    fromTeam: "보루시아 도르트문트",
+    toTeam: "리버풀",
+    league: "분데스리가",
+    certainty: "진전",
+    summary: "협상이 마지막 단계에 들어섰다고 확인.",
+    publishedAt: "2026-08-17",
+  },
+
+  // 8. 라파엘 레앙 — AC 밀란 → 첼시 (fromTeam 리그: 세리에 A)
+  {
+    id: "a19",
+    url: "https://example.com/articles/leao-confirmed",
+    journalistId: "dimarzio",
+    playerName: "라파엘 레앙",
+    fromTeam: "AC 밀란",
+    toTeam: "첼시",
+    league: "세리에 A",
+    certainty: "확정",
+    summary: "밀란 이사회가 이적을 승인, 계약 조건까지 합의됐다고 보도 (이탈리아 현지 전문 소식통).",
+    publishedAt: "2026-08-14",
+  },
+  {
+    id: "a20",
+    url: "https://example.com/articles/leao-progressing",
+    journalistId: "romano",
+    playerName: "라파엘 레앙",
+    fromTeam: "AC 밀란",
+    toTeam: "첼시",
+    league: "세리에 A",
+    certainty: "진전",
+    summary: "첼시가 제시한 조건에 밀란이 긍정적으로 반응하고 있음.",
+    publishedAt: "2026-08-16",
+  },
+  {
+    id: "a21",
+    url: "https://example.com/articles/leao-interest",
+    journalistId: "castles",
+    playerName: "라파엘 레앙",
+    fromTeam: "AC 밀란",
+    toTeam: "첼시",
+    league: "세리에 A",
+    certainty: "관심",
+    summary: "첼시가 관심을 갖고 있다는 수준의 초기 보도.",
+    publishedAt: "2026-08-12",
+  },
+
+  // 9. 브루누 페르난데스 — 맨체스터 유나이티드 → 알-힐랄 (아웃고잉)
+  {
+    id: "a22",
+    url: "https://example.com/articles/bruno-progressing",
+    journalistId: "ornstein",
+    playerName: "브루누 페르난데스",
+    fromTeam: "맨체스터 유나이티드",
+    toTeam: "알-힐랄",
+    league: "프리미어리그",
+    certainty: "진전",
+    summary: "알-힐랄의 오퍼 규모가 커지면서 맨유도 내부적으로 논의 중.",
+    publishedAt: "2026-08-13",
+  },
+  {
+    id: "a23",
+    url: "https://example.com/articles/bruno-confirmed",
+    journalistId: "castles",
+    playerName: "브루누 페르난데스",
+    fromTeam: "맨체스터 유나이티드",
+    toTeam: "알-힐랄",
+    league: "프리미어리그",
+    certainty: "확정",
+    summary: "이적이 확정됐다고 성급하게 단정한 보도.",
+    publishedAt: "2026-08-10",
+  },
+
+  // 10. 콜 파머 — 첼시 → 레알 마드리드 (아웃고잉)
+  {
+    id: "a24",
+    url: "https://example.com/articles/palmer-interest",
+    journalistId: "romano",
+    playerName: "콜 파머",
+    fromTeam: "첼시",
+    toTeam: "레알 마드리드",
+    league: "프리미어리그",
+    certainty: "관심",
+    summary: "레알 마드리드가 여름 영입 후보로 검토하고 있다는 수준.",
+    publishedAt: "2026-08-11",
+  },
+  {
+    id: "a25",
+    url: "https://example.com/articles/palmer-progressing",
+    journalistId: "ornstein",
+    playerName: "콜 파머",
+    fromTeam: "첼시",
+    toTeam: "레알 마드리드",
+    league: "프리미어리그",
+    certainty: "진전",
+    summary: "첼시 구단이 잔류를 설득 중이나, 선수 본인은 이적에 열려 있다고 보도.",
+    publishedAt: "2026-08-09",
+  },
 ];
 
 function findJournalist(journalistId: string): Journalist {
@@ -232,17 +394,13 @@ function buildRumors(): Rumor[] {
   return playerOrder.map((playerName, index) => {
     const playerArticles = articles.filter((article) => article.playerName === playerName);
 
-    const scored = playerArticles.map((article) => ({
-      article,
-      journalist: findJournalist(article.journalistId),
-      score: calculateArticleScore(article, findJournalist(article.journalistId)),
-    }));
+    const articleScores = playerArticles.map((article) =>
+      calculateArticleScore(article, findJournalist(article.journalistId)),
+    );
 
     const latestArticle = [...playerArticles].sort((a, b) =>
       b.publishedAt.localeCompare(a.publishedAt),
     )[0];
-
-    const topScored = [...scored].sort((a, b) => b.score - a.score)[0];
 
     return {
       id: `rumor-${index + 1}`,
@@ -250,9 +408,14 @@ function buildRumors(): Rumor[] {
       fromTeam: playerArticles[0].fromTeam,
       toTeam: latestArticle.toTeam,
       articleIds: playerArticles.map((article) => article.id),
-      score: calculateAggregateScore(scored.map((item) => item.score)),
-      topJournalistName: topScored.journalist.name,
+      journalistIds: [...new Set(playerArticles.map((article) => article.journalistId))],
+      score: calculateAggregateScore(articleScores),
       updatedAt: latestArticle.publishedAt,
+      latestArticle: {
+        journalistName: findJournalist(latestArticle.journalistId).name,
+        url: latestArticle.url,
+        publishedAt: latestArticle.publishedAt,
+      },
     };
   });
 }
