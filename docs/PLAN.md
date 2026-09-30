@@ -19,8 +19,11 @@
 - **프레임워크**: Next.js (App Router) + TypeScript
   - 컴포넌트 단위로 화면을 쪼개서 만들기 쉽고, Vercel 배포가 매우 간단해서 5차시 목표(첫 배포)에 적합.
 - **스타일**: Tailwind CSS — 클래스만으로 빠르게 UI를 만들 수 있어 매 차시 진도를 맞추기 좋음.
-- **배포**: Vercel (5차시).
-- **DB**: Supabase (6차시~) — Postgres 기반, 테이블 설계가 계획서의 "저장할 데이터" 항목과 1:1로 대응됨.
+- **배포**: Vercel (5차시, 배포 완료).
+- **DB**: Supabase — Postgres 기반, 테이블 설계가 계획서의 "저장할 데이터" 항목과
+  1:1로 대응됨. 스키마는 [`supabase/schema.sql`](../supabase/schema.sql) 참고
+  (6차시: 테이블 생성 + 클라이언트 연동. 아직 로그인 기능이 없어서 RLS는 꺼둔 상태 —
+  자세한 이유는 schema.sql 상단 주석 참고).
 - **상태 관리**: 별도 라이브러리 없이 React `useState` + props로 충분 (규모가 작음).
 
 ### 폴더 구조 (현재)
@@ -48,15 +51,24 @@ docs/
   PLAN.md          # 이 문서
 ```
 
+6차시에 추가된 것 (현재):
+
+```
+lib/
+  supabase.ts                    # Supabase 클라이언트 (getSupabaseClient())
+app/
+  api/supabase-test/route.ts       # 연결 테스트용 라우트 (select 쿼리 1개)
+supabase/
+  schema.sql                        # journalists/articles/rumors 테이블 생성 SQL
+.env.example                          # 필요한 환경변수 이름만 적어둔 템플릿 (커밋됨)
+.env.local                             # 실제 값 (커밋 안 됨, 직접 채워 넣음)
+```
+
 앞으로 늘어날 구조 (예정):
 
 ```
 app/
-  admin/page.tsx        # 관리자 기사 등록 폼
-components/
-  ArticleTimelineItem.tsx # 4차시: 상세 페이지 타임라인 항목
-lib/
-  supabase.ts              # 6차시: Supabase 클라이언트
+  admin/page.tsx        # 7차시: 관리자 기사 등록 폼
 ```
 
 ## 3. 데이터 모델 (계획서 2번 항목 기준)
