@@ -21,7 +21,10 @@ export default function Home() {
       <div className="mx-auto flex w-full max-w-5xl flex-1">
         <FilterSidebar players={players} value={filter} onChange={setFilter} />
         <main className="flex flex-1 flex-col gap-4 px-6 py-6">
-          <SearchBar />
+          <SearchBar
+            value={filter.query}
+            onChange={(query) => setFilter((prev) => ({ ...prev, query }))}
+          />
 
           <div className="flex items-center gap-2 text-sm text-zinc-500">
             <span>최신순 · 총 {visibleRumors.length}건</span>

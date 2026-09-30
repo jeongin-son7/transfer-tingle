@@ -27,20 +27,21 @@
 
 ```
 app/
-  layout.tsx       # 전체 레이아웃, 메타데이터
-  page.tsx         # 메인 화면 (사이드바 + 카드 목록)
+  layout.tsx           # 전체 레이아웃, 메타데이터
+  page.tsx             # 메인 화면 (사이드바 + 카드 목록)
   globals.css
+  rumor/[id]/page.tsx    # 이적설 상세 페이지 (기사 타임라인)
 components/
   Header.tsx         # 상단 바 (제목)
-  SearchBar.tsx       # 검색창
+  SearchBar.tsx       # 검색창 (실시간 필터링)
   FilterSidebar.tsx   # 팀별/기자별/선수별 필터 사이드바 (실제로 목록을 걸러냄)
-  RumorCard.tsx        # 이적설 카드
+  RumorCard.tsx        # 이적설 카드 (클릭 시 상세 페이지로 이동)
   TeamBadge.tsx         # 팀 이니셜 배지
 lib/
   types.ts           # Journalist/Article/Rumor 타입
   trustScore.ts        # 신뢰도 계산 함수 (1단계: 단순 평균)
   dummyData.ts          # 더미 기자/기사 데이터 + 이적설 배열 계산
-  filters.ts             # 필터 상태 타입 + 걸러내기/정렬 함수
+  filters.ts             # 필터 상태 타입(검색어 포함) + 걸러내기/정렬 함수
   teams.ts                # 팀 배지용 메타데이터
   relativeDate.ts          # "n일 전" 상대 날짜 포맷
 docs/
@@ -51,7 +52,6 @@ docs/
 
 ```
 app/
-  rumor/[id]/page.tsx   # 4차시: 이적설 상세 페이지
   admin/page.tsx        # 관리자 기사 등록 폼
 components/
   ArticleTimelineItem.tsx # 4차시: 상세 페이지 타임라인 항목
