@@ -70,16 +70,16 @@ supabase/
 app/
   admin/page.tsx                   # 관리자 기사 등록 폼
   api/journalists/route.ts          # 등록 폼 기자 드롭다운용 목록 조회
-  api/players/route.ts               # DB에 저장된 선수명 조회 (자동완성 후보 일부)
+  api/players/route.ts               # players 테이블 전체 조회 (선수 검색-선택용)
   api/teams/route.ts                  # DB에 저장된 팀 이름 조회 (자동완성 후보 일부)
   api/articles/route.ts                # 기사 저장 (점수 계산은 서버에서)
+components/
+  PlayerSearchSelect.tsx            # 선수 검색 후 목록에서 클릭으로 선택하는 콤보박스
 lib/
-  dummyData.ts에 KNOWN_PLAYERS/KNOWN_TEAMS 추가
-    # 공식 선수·팀 목록(메인 화면 필터와 동일 출처) + 위 DB 조회 결과를 합쳐서
-    # 관리자 등록 폼의 선수명/팀 자동완성 후보로 씀
+  dummyData.ts에 KNOWN_TEAMS 추가      # 더미 기사의 팀 목록 (팀 자동완성 초기값)
   teams.ts에 getTeamLeague() 추가      # 팀 이름 → 리그 조회 (점수 계산용)
 supabase/
-  seed.sql                           # 기자 후보 5명 초기 데이터 (idempotent)
+  seed.sql                           # 기자 5명 + 선수 10명 초기 데이터 (idempotent)
 ```
 
 앞으로 늘어날 구조 (예정):
@@ -127,6 +127,22 @@ app/
 | article_ids | 관련 기사 id 목록 |
 | aggregate_score | 종합 신뢰 점수 (파생값) |
 | updated_at | 최종 업데이트 날짜 |
+
+### `players` (선수) — 계획서 원안엔 없던 4번째 테이블, 7차시 진행 중 추가
+
+관리자 등록 폼에서 "선수를 검색해서 선택"하고, 선택하면 현재 소속팀으로
+"이적 전 팀"을 자동으로 채우기 위해 추가했다. `articles.player_name`은 여전히
+단순 텍스트 컬럼이라(관계형으로 바꾸지 않음) 이 테이블과 FK로 묶여있지 않다 —
+순수하게 등록 폼의 입력 보조용.
+
+| 필드 | 설명 |
+|---|---|
+| id | PK |
+| name | 선수 이름 (unique) |
+| current_team | 현재 소속팀 |
+
+> 지금은 공식 10명만 들어있지만(`supabase/seed.sql`), 실제 배포할 때는 여기에
+> 선수를 더 많이 추가하면 등록 폼의 검색-선택에 그대로 반영된다.
 
 ## 4. 신뢰도 계산 로직 (계획서 2번 "처리" 항목 기준)
 

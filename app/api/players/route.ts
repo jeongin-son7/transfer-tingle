@@ -1,8 +1,6 @@
-// 관리자 등록 폼의 "관련 선수명" 자동완성(datalist)용 — articles에 이미 등록된
-// player_name 목록을 중복 없이 반환. "players" 테이블이 따로 없기 때문에(계획서
-// 데이터 모델엔 journalists/articles/rumors 3개뿐) articles에서 직접 뽑는다.
-// 완전한 드롭다운이 아니라 "추천"일 뿐이라 목록에 없는 새 선수도 자유롭게
-// 입력할 수 있다.
+// 관리자 등록 폼의 "선수 검색·선택" 콤보박스용 — players 마스터 테이블 전체를
+// 반환한다. (예전엔 articles에서 중복 제거해 "추천"만 했는데, 이젠 자유 입력이
+// 아니라 이 목록에서 반드시 선택하는 방식으로 바뀌었다.)
 
 import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -16,15 +14,19 @@ export async function GET() {
   }
 
   const { data, error } = await supabase
-    .from("articles")
-    .select("player_name")
-    .order("player_name");
+    .from("players")
+    .select("id, name, current_team")
+    .order("name");
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const players = [...new Set((data ?? []).map((row) => row.player_name as string))];
+  const players = (data ?? []).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    currentTeam: row.current_team as string,
+  }));
 
   return NextResponse.json({ ok: true, players });
 }

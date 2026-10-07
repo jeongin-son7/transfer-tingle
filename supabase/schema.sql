@@ -51,3 +51,23 @@ create table if not exists rumors (
 );
 
 create index if not exists rumors_player_name_idx on rumors (player_name);
+
+-- 4) 선수 마스터 테이블 (계획서 원안엔 없던 테이블, 7차시 진행 중 추가).
+-- articles.player_name은 여전히 그냥 텍스트 컬럼이고(바꾸지 않음), 이 테이블은
+-- 관리자 등록 폼에서 "선수를 검색해서 선택"하고 고르면 현재 소속팀을 자동으로
+-- 채워주는 용도로만 쓴다. 나중에 실제 배포할 선수 전체 명단도 여기에 추가하면 됨.
+create table if not exists players (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  current_team text not null
+);
+
+create unique index if not exists players_name_key on players (name);
+
+-- RLS가 어쩌다 켜져 있었던 적이 있어서(Table Editor에서 실수로 토글되는 등),
+-- 재실행해도 확실히 꺼지도록 명시적으로 선언해둔다. 로그인 기능이 생기기 전까진
+-- 이 상태를 유지한다.
+alter table journalists disable row level security;
+alter table articles disable row level security;
+alter table rumors disable row level security;
+alter table players disable row level security;

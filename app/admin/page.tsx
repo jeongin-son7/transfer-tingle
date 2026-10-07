@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { KNOWN_PLAYERS, KNOWN_TEAMS } from "@/lib/dummyData";
+import { KNOWN_TEAMS } from "@/lib/dummyData";
+import PlayerSearchSelect, { type PlayerOption } from "@/components/PlayerSearchSelect";
 import type { Certainty } from "@/lib/types";
 
 interface JournalistOption {
@@ -22,15 +23,15 @@ const inputClass =
 
 export default function AdminPage() {
   const [journalists, setJournalists] = useState<JournalistOption[]>([]);
-  // 선수명 자동완성 후보. 완전한 드롭다운이 아니라 "추천"이라, 여기 없는 새
-  // 선수도 그냥 타이핑해서 등록할 수 있다 (players 테이블이 따로 없어서).
-  // docs/PLAN.md 공식 선수 목록(메인 화면 필터와 동일)으로 시작해서, DB에 이미
-  // 저장된 선수 이름을 합친다 — 두 목록이 따로 노는 걸 막기 위함.
-  const [playerSuggestions, setPlayerSuggestions] = useState<string[]>(KNOWN_PLAYERS);
-  // 팀 자동완성도 선수명과 같은 방식: 더미 데이터의 팀 목록으로 시작해서 DB에
-  // 이미 저장된 팀 이름과 합친다. "이적 전/후 팀" 두 입력창이 같이 쓴다.
+  // 선수는 이제 players 마스터 테이블에서 검색해서 "선택"하는 방식 (자유 입력
+  // 불가). 선택하면 그 선수의 현재 소속팀으로 "이적 전 팀"을 자동으로 채운다.
+  const [players, setPlayers] = useState<PlayerOption[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerOption | null>(null);
+  // 팀 자동완성은 기존 방식 유지: 더미 데이터의 팀 목록으로 시작해서 DB에 이미
+  // 저장된 팀 이름과 합친다. "이적 전/후 팀" 두 입력창이 같이 쓴다.
   const [teamSuggestions, setTeamSuggestions] = useState<string[]>(KNOWN_TEAMS);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [playersError, setPlayersError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
@@ -65,14 +66,13 @@ export default function AdminPage() {
     fetch("/api/players")
       .then((res) => res.json())
       .then((data) => {
-        if (data.ok) {
-          setPlayerSuggestions((prev) => [...new Set([...prev, ...data.players])].sort());
+        if (!data.ok) {
+          setPlayersError(data.error);
+          return;
         }
+        setPlayers(data.players);
       })
-      .catch(() => {
-        // 자동완성 후보는 필수 기능이 아니라서, 못 가져와도 조용히 넘어간다
-        // (직접 타이핑하는 데는 지장 없음).
-      });
+      .catch((err) => setPlayersError(String(err)));
 
     fetch("/api/teams")
       .then((res) => res.json())
@@ -86,6 +86,12 @@ export default function AdminPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!selectedPlayer) {
+      setResult({ type: "error", message: "선수를 목록에서 검색해 선택해주세요." });
+      return;
+    }
+
     setSubmitting(true);
     setResult(null);
 
@@ -106,10 +112,8 @@ export default function AdminPage() {
         type: "success",
         message: `저장 완료! 계산된 개별 신뢰 점수: ${data.score}점`,
       });
-      setPlayerSuggestions((prev) =>
-        prev.includes(form.playerName) ? prev : [...prev, form.playerName].sort(),
-      );
       setTeamSuggestions((prev) => [...new Set([...prev, form.fromTeam, form.toTeam])].sort());
+      setSelectedPlayer(null);
       setForm((prev) => ({ ...prev, url: "", playerName: "", fromTeam: "", toTeam: "", summary: "" }));
     } catch (err) {
       setResult({ type: "error", message: String(err) });
@@ -170,20 +174,25 @@ export default function AdminPage() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm text-zinc-600">
-            관련 선수명
-            <input
-              required
-              list="player-suggestions"
-              value={form.playerName}
-              onChange={(e) => setForm((p) => ({ ...p, playerName: e.target.value }))}
-              className={inputClass}
-              placeholder="기존 선수명은 자동완성, 새 선수는 직접 입력"
+            관련 선수명 (검색해서 선택)
+            <PlayerSearchSelect
+              players={players}
+              selected={selectedPlayer}
+              onSelect={(player) => {
+                setSelectedPlayer(player);
+                setForm((p) => ({ ...p, playerName: player.name, fromTeam: player.currentTeam }));
+              }}
             />
-            <datalist id="player-suggestions">
-              {playerSuggestions.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
+            {playersError && (
+              <span className="text-xs text-red-600">
+                선수 목록을 불러오지 못했습니다: {playersError}
+              </span>
+            )}
+            {!playersError && players.length === 0 && (
+              <span className="text-xs text-zinc-400">
+                선수 목록이 비어 있습니다. supabase/seed.sql을 실행했는지 확인하세요.
+              </span>
+            )}
           </label>
 
           <div className="grid grid-cols-2 gap-3">
@@ -252,7 +261,7 @@ export default function AdminPage() {
 
           <button
             type="submit"
-            disabled={submitting || journalists.length === 0}
+            disabled={submitting || journalists.length === 0 || !selectedPlayer}
             className="mt-2 rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
             {submitting ? "저장 중..." : "기사 저장"}
