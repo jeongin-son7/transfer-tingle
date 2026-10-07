@@ -64,6 +64,22 @@ create table if not exists players (
 
 create unique index if not exists players_name_key on players (name);
 
+-- 5) 클럽 마스터 테이블. 유럽 5대 리그(프리미어리그/라리가/세리에A/분데스리가/
+-- 리그1) 전체 구단을 담아둔다. 지금은 참고 데이터로만 쓰지만, 나중에 선수
+-- current_team이나 관리자 폼의 팀 선택을 여기서 끌어오게 확장할 수 있다.
+-- logo_url은 외부(Wikipedia) 이미지 주소를 그대로 참조만 한다 — 저작권이 있는
+-- 구단 엠블럼이라 우리가 직접 호스팅하지 않고, 식별 목적의 링크만 둔다.
+create table if not exists clubs (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  short_code text not null,
+  league text not null,
+  logo_url text
+);
+
+create unique index if not exists clubs_name_key on clubs (name);
+create index if not exists clubs_league_idx on clubs (league);
+
 -- RLS가 어쩌다 켜져 있었던 적이 있어서(Table Editor에서 실수로 토글되는 등),
 -- 재실행해도 확실히 꺼지도록 명시적으로 선언해둔다. 로그인 기능이 생기기 전까진
 -- 이 상태를 유지한다.
@@ -71,3 +87,4 @@ alter table journalists disable row level security;
 alter table articles disable row level security;
 alter table rumors disable row level security;
 alter table players disable row level security;
+alter table clubs disable row level security;
