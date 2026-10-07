@@ -62,6 +62,22 @@ const OTHER_TEAMS: TeamMeta[] = [
     logoFile: "Borussia_Dortmund_logo.svg",
   },
   { name: "알-힐랄", shortCode: "HIL", color: "#1E4D2B", logoFile: "Al Hilal SFC Logo.svg" },
+  { name: "아스널", shortCode: "ARS", color: "#EF0107", logoFile: "Arsenal_FC.svg" },
+  {
+    name: "웨스트햄 유나이티드",
+    shortCode: "WHU",
+    color: "#7A263A",
+    logoFile: "West_Ham_United_FC_logo.svg",
+  },
+  { name: "애스턴 빌라", shortCode: "AVL", color: "#670E36" },
+  {
+    name: "아틀레티코 마드리드",
+    shortCode: "ATM",
+    color: "#CB3524",
+    logoFile: "Atletico_Madrid_2017_logo.svg",
+  },
+  { name: "인터 밀란", shortCode: "INT", color: "#010E80", logoFile: "FC_Internazionale_Milano_2021.svg" },
+  { name: "벤피카", shortCode: "SLB", color: "#E00000" },
 ];
 
 const FALLBACK_COLOR = "#9CA3AF";
@@ -89,14 +105,20 @@ const TEAM_LEAGUES: Record<string, string> = {
   리버풀: "프리미어리그",
   첼시: "프리미어리그",
   브라이튼: "프리미어리그",
+  아스널: "프리미어리그",
+  "애스턴 빌라": "프리미어리그",
+  "웨스트햄 유나이티드": "프리미어리그",
   "파리 생제르맹": "리그 1",
   "AS 모나코": "리그 1",
   "레알 마드리드": "라리가",
   "FC 바르셀로나": "라리가",
+  "아틀레티코 마드리드": "라리가",
   유벤투스: "세리에 A",
   "AC 밀란": "세리에 A",
+  "인터 밀란": "세리에 A",
   "바이에른 뮌헨": "분데스리가",
   "보루시아 도르트문트": "분데스리가",
+  "바이어 레버쿠젠": "분데스리가",
   "알-힐랄": "사우디 프로리그",
 };
 

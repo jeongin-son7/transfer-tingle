@@ -30,9 +30,13 @@ npm run dev
    Settings → Environment Variables에도 똑같이 추가하고 Redeploy 해야 함.**
 2. Supabase 대시보드 → SQL Editor에서 순서대로 실행:
    1. [`supabase/schema.sql`](./supabase/schema.sql) — `journalists` / `articles` /
-      `rumors` 3개 테이블 생성
-   2. [`supabase/seed.sql`](./supabase/seed.sql) — 기자 후보 5명 초기 데이터 삽입
-      (관리자 등록 폼에서 기자를 선택하려면 먼저 이 데이터가 있어야 함)
+      `rumors` / `players` / `clubs` 테이블 생성 (재실행해도 안전, idempotent)
+   2. [`supabase/seed.sql`](./supabase/seed.sql) — 기자 5명, 선수 55명(공식 10명 +
+      실제 유명 선수 45명), 클럽 96개(유럽 5대 리그 전체) 초기 데이터
+   3. [`supabase/seed_real_articles.sql`](./supabase/seed_real_articles.sql) — 실제
+      있었던 이적 사례 6건 × 각 3개 기사(총 18개). 선수/구단/결과는 전부 사실이고,
+      원문 링크는 각 기자의 실제 공개 프로필/매체 홈페이지로 연결해둠(특정 기사
+      URL은 검증 불가능해서 지어내지 않음)
 3. `npm run dev` 실행 후 [`/api/supabase-test`](http://localhost:3000/api/supabase-test)
    접속 — `{ "ok": true, ... }` 가 나오면 연결 성공. `{ "ok": false, "error": ... }` 면
    에러 메시지를 보고 원인 확인 (환경변수 비어있음 / 아직 schema.sql 안 돌림 등).
