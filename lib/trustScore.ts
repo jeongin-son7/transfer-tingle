@@ -18,7 +18,10 @@ export function getTierScore(journalist: Journalist, league: string): number {
 }
 
 /** 개별 기사의 신뢰 점수 = 티어 점수 × 확실성 가중치 */
-export function calculateArticleScore(article: Article, journalist: Journalist): number {
+export function calculateArticleScore(
+  article: Pick<Article, "league" | "certainty">,
+  journalist: Journalist,
+): number {
   const tierScore = getTierScore(journalist, article.league);
   return Math.round(tierScore * CERTAINTY_WEIGHT[article.certainty]);
 }

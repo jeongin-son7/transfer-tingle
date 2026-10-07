@@ -26,12 +26,18 @@ npm run dev
 
 1. `.env.local`에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` 값을
    Supabase 대시보드 → Settings → API 에서 복사해 채워 넣기 (`.env.example` 참고, 이
-   파일 자체는 커밋되지 않음).
-2. Supabase 대시보드 → SQL Editor에서 [`supabase/schema.sql`](./supabase/schema.sql)
-   내용을 실행해 `journalists` / `articles` / `rumors` 3개 테이블 생성.
+   파일 자체는 커밋되지 않음). **Vercel에 배포된 버전을 쓰려면 Vercel 프로젝트 →
+   Settings → Environment Variables에도 똑같이 추가하고 Redeploy 해야 함.**
+2. Supabase 대시보드 → SQL Editor에서 순서대로 실행:
+   1. [`supabase/schema.sql`](./supabase/schema.sql) — `journalists` / `articles` /
+      `rumors` 3개 테이블 생성
+   2. [`supabase/seed.sql`](./supabase/seed.sql) — 기자 후보 5명 초기 데이터 삽입
+      (관리자 등록 폼에서 기자를 선택하려면 먼저 이 데이터가 있어야 함)
 3. `npm run dev` 실행 후 [`/api/supabase-test`](http://localhost:3000/api/supabase-test)
    접속 — `{ "ok": true, ... }` 가 나오면 연결 성공. `{ "ok": false, "error": ... }` 면
    에러 메시지를 보고 원인 확인 (환경변수 비어있음 / 아직 schema.sql 안 돌림 등).
+4. [`/admin`](http://localhost:3000/admin) 에서 기사 등록 테스트 — 저장하면 Supabase
+   대시보드 Table Editor의 `articles` 테이블에서 바로 확인 가능.
 
 ## 현재 진행 상태
 
@@ -42,5 +48,6 @@ npm run dev
 - [x] 5차시: 신뢰도 계산 함수 화면 반영 + Vercel 배포
 - [x] 6차시: Supabase 클라이언트 연동, 3개 테이블 스키마 작성, 연결 테스트 라우트
       (실제 Supabase 프로젝트 값 입력 + 대시보드에서 schema.sql 실행은 직접 진행)
-- [ ] 7차시: 관리자 등록 폼 → articles 테이블 저장 기능
+- [x] 7차시: 관리자 등록 폼(`/admin`) → `articles` 테이블 저장 기능, 저장 시점에
+      개별 신뢰 점수 계산 (기자 시드 데이터는 `supabase/seed.sql`로 직접 실행 필요)
 - [ ] 8차시: 실제 DB 데이터로 메인·상세 화면 완성

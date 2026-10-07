@@ -64,11 +64,24 @@ supabase/
 .env.local                             # 실제 값 (커밋 안 됨, 직접 채워 넣음)
 ```
 
+7차시에 추가된 것 (현재):
+
+```
+app/
+  admin/page.tsx                   # 관리자 기사 등록 폼
+  api/journalists/route.ts          # 등록 폼 드롭다운용 기자 목록 조회
+  api/articles/route.ts              # 기사 저장 (점수 계산은 서버에서)
+supabase/
+  seed.sql                           # 기자 후보 5명 초기 데이터 (idempotent)
+lib/
+  teams.ts에 getTeamLeague() 추가      # 팀 이름 → 리그 조회 (점수 계산용)
+```
+
 앞으로 늘어날 구조 (예정):
 
 ```
 app/
-  admin/page.tsx        # 7차시: 관리자 기사 등록 폼
+  (8차시: 메인·상세 화면이 더미 데이터 대신 Supabase 쿼리 결과를 쓰도록 교체)
 ```
 
 ## 3. 데이터 모델 (계획서 2번 항목 기준)
