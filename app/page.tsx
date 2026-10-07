@@ -1,55 +1,23 @@
-"use client";
+import HomeClient from "@/components/HomeClient";
+import { fetchLiveData } from "@/lib/supabaseData";
 
-import { useMemo, useState } from "react";
-import Header from "@/components/Header";
-import SearchBar from "@/components/SearchBar";
-import FilterSidebar from "@/components/FilterSidebar";
-import RumorCard from "@/components/RumorCard";
-import { rumors } from "@/lib/dummyData";
-import { EMPTY_FILTER, filterRumors, hasActiveFilter, sortByLatest, type RumorFilterState } from "@/lib/filters";
+// 매 요청마다 Supabase에서 최신 데이터를 읽어와야 하므로(관리자가 기사를
+// 등록할 때마다 바로 반영돼야 함), 빌드 시점에 미리 굳히지 않고 항상
+// 요청 시점에 렌더링한다.
+export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const [filter, setFilter] = useState<RumorFilterState>(EMPTY_FILTER);
+export default async function Home() {
+  let rumors: Awaited<ReturnType<typeof fetchLiveData>>["rumors"] = [];
+  let journalists: Awaited<ReturnType<typeof fetchLiveData>>["journalists"] = [];
+  let loadError: string | null = null;
 
-  const players = useMemo(() => [...new Set(rumors.map((rumor) => rumor.playerName))], []);
+  try {
+    const data = await fetchLiveData();
+    rumors = data.rumors;
+    journalists = data.journalists;
+  } catch (err) {
+    loadError = (err as Error).message;
+  }
 
-  const visibleRumors = useMemo(() => sortByLatest(filterRumors(rumors, filter)), [filter]);
-
-  return (
-    <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
-      <Header />
-      <div className="mx-auto flex w-full max-w-5xl flex-1">
-        <FilterSidebar players={players} value={filter} onChange={setFilter} />
-        <main className="flex flex-1 flex-col gap-4 px-6 py-6">
-          <SearchBar
-            value={filter.query}
-            onChange={(query) => setFilter((prev) => ({ ...prev, query }))}
-          />
-
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <span>최신순 · 총 {visibleRumors.length}건</span>
-            {hasActiveFilter(filter) && (
-              <button
-                type="button"
-                onClick={() => setFilter(EMPTY_FILTER)}
-                className="text-emerald-600 underline underline-offset-2"
-              >
-                필터 초기화
-              </button>
-            )}
-          </div>
-
-          <section className="flex flex-col gap-3">
-            {visibleRumors.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-zinc-300 py-16 text-center text-sm text-zinc-400">
-                조건에 맞는 이적설이 없습니다.
-              </p>
-            ) : (
-              visibleRumors.map((rumor) => <RumorCard key={rumor.id} rumor={rumor} />)
-            )}
-          </section>
-        </main>
-      </div>
-    </div>
-  );
+  return <HomeClient rumors={rumors} journalists={journalists} loadError={loadError} />;
 }

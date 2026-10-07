@@ -82,6 +82,30 @@ supabase/
   seed.sql                           # 기자 5명 + 선수 10명 초기 데이터 (idempotent)
 ```
 
+8차시에 추가된 것 (현재, 메인·상세 화면을 실제 DB 데이터로 전환):
+
+```
+app/
+  page.tsx                 # 서버 컴포넌트로 전환, Supabase에서 데이터 읽어와
+                              HomeClient에 넘겨줌 (force-dynamic — 매 요청마다 새로 조회)
+  rumor/[id]/page.tsx       # generateStaticParams 제거, 요청마다 Supabase 조회로 변경.
+                              id는 PK가 아니라 encodeURIComponent(선수명)
+components/
+  HomeClient.tsx            # 기존 page.tsx의 필터·검색 로직을 그대로 옮긴 클라이언트 컴포넌트
+lib/
+  supabaseData.ts            # journalists/articles를 읽어와 Rumor[]로 묶는 fetchLiveData().
+                                lib/dummyData.ts의 buildRumors()와 같은 로직, 소스만 실제 DB로 교체
+```
+
+> 주의: `components/FilterSidebar.tsx`의 "기자별" 옵션은 더 이상 `lib/dummyData.ts`의
+> 더미 기자 목록을 쓰지 않는다 — 더미 기자 id("romano" 등)와 실제 Supabase
+> journalists.id(uuid)가 달라서, 그대로 뒀으면 필터가 항상 빈 결과만 냈을 것이다.
+> 이제 `HomeClient`가 서버에서 받은 실제 journalists를 props로 내려준다.
+>
+> `lib/dummyData.ts`의 `articles`/`journalists`/`rumors`는 이제 어디서도 쓰이지
+> 않지만(화면은 전부 실제 DB를 봄), 참고용으로 남겨뒀다. `KNOWN_TEAMS`만 관리자
+> 등록 폼의 팀 자동완성 초기값으로 여전히 쓰인다.
+
 앞으로 늘어날 구조 (예정):
 
 ```

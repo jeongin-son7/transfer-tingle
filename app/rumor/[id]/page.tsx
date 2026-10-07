@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import TeamBadge from "@/components/TeamBadge";
-import { articles, journalists, rumors } from "@/lib/dummyData";
+import { fetchLiveData } from "@/lib/supabaseData";
 import { formatRelativeDate } from "@/lib/relativeDate";
-import { calculateArticleScore } from "@/lib/trustScore";
-import type { Article } from "@/lib/types";
 
-// 더미 데이터 기준이라 모든 이적설 상세 페이지를 빌드 시점에 미리 만들어 둔다.
-// 6차시에 실제 DB로 바뀌면 이 함수는 지우거나 Supabase 조회로 바꾸면 된다.
-export function generateStaticParams() {
-  return rumors.map((rumor) => ({ id: rumor.id }));
-}
+// 메인 화면과 마찬가지로 항상 최신 DB 데이터를 봐야 하므로 빌드 시점에 미리
+// 생성해두지 않는다 (예전엔 더미 데이터라 generateStaticParams로 미리 만들어
+// 뒀지만, 실제 id는 빌드 시점에 알 수 없어서 더 이상 쓸 수 없음).
+export const dynamic = "force-dynamic";
 
 export default async function RumorDetailPage({
   params,
@@ -18,17 +15,44 @@ export default async function RumorDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const rumor = rumors.find((r) => r.id === id);
+  const playerName = decodeURIComponent(id);
+
+  let loadError: string | null = null;
+  let timeline: Awaited<ReturnType<typeof fetchLiveData>>["articles"] = [];
+  let rumor: Awaited<ReturnType<typeof fetchLiveData>>["rumors"][number] | undefined;
+  let journalists: Awaited<ReturnType<typeof fetchLiveData>>["journalists"] = [];
+
+  try {
+    const data = await fetchLiveData();
+    journalists = data.journalists;
+    rumor = data.rumors.find((r) => r.playerName === playerName);
+    timeline = data.articles
+      .filter((article) => article.playerName === playerName)
+      .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
+  } catch (err) {
+    loadError = (err as Error).message;
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
+        <header className="border-b border-zinc-200 bg-white px-6 py-4">
+          <Link href="/" className="text-sm text-zinc-500 hover:text-emerald-600">
+            ← 메인으로
+          </Link>
+        </header>
+        <main className="mx-auto w-full max-w-2xl px-6 py-8">
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            DB에서 이적설을 불러오지 못했습니다: {loadError}
+          </p>
+        </main>
+      </div>
+    );
+  }
 
   if (!rumor) {
     notFound();
   }
-
-  // 관련 기사를 날짜순(오래된 것 → 최신) 타임라인으로 정렬.
-  const timeline = rumor.articleIds
-    .map((articleId) => articles.find((article) => article.id === articleId))
-    .filter((article): article is Article => article !== undefined)
-    .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt));
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
@@ -66,8 +90,6 @@ export default async function RumorDetailPage({
               const journalist = journalists.find((j) => j.id === article.journalistId);
               if (!journalist) return null;
 
-              const score = calculateArticleScore(article, journalist);
-
               return (
                 <li key={article.id} className="rounded-lg border border-zinc-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -75,9 +97,9 @@ export default async function RumorDetailPage({
                       <p className="text-sm font-semibold text-zinc-900">{journalist.name}</p>
                       <p className="text-xs text-zinc-400">{journalist.outlet}</p>
                     </div>
-                    {/* 개별 기사 신뢰 점수 = 티어 점수 × 확실성 가중치 (lib/trustScore.ts) */}
+                    {/* 저장 시점에 서버(app/api/articles/route.ts)가 계산해 둔 개별 신뢰 점수 */}
                     <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700">
-                      {score}점
+                      {article.score}점
                     </span>
                   </div>
 

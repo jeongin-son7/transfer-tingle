@@ -1,7 +1,7 @@
 "use client";
 
-import { journalists } from "@/lib/dummyData";
 import type { RumorFilterState } from "@/lib/filters";
+import type { Journalist } from "@/lib/types";
 import { CORE_TEAMS } from "@/lib/teams";
 
 interface Option {
@@ -57,8 +57,11 @@ function FilterGroup({
 }
 
 interface FilterSidebarProps {
-  /** 현재 더미 데이터에 등장하는 선수 이름 목록 ("선수별" 필터 옵션). */
+  /** 현재 데이터에 등장하는 선수 이름 목록 ("선수별" 필터 옵션). */
   players: string[];
+  /** DB에 저장된 기자 목록 ("기자별" 필터 옵션). 더미 데이터가 아니라 실제
+   * Supabase journalists를 넘겨받아야 한다 — id가 서로 다르면 필터가 안 먹음. */
+  journalists: Journalist[];
   value: RumorFilterState;
   onChange: (next: RumorFilterState) => void;
 }
@@ -66,7 +69,7 @@ interface FilterSidebarProps {
 // 계획서 취지에 맞춘 실제 필터: "팀별/기자별/선수별"을 누르면 정렬이 아니라
 // 그 카테고리의 구체적인 선택지가 나타나고, 하나를 고르면 해당 조건에 맞는
 // 이적설만 화면에 남는다. "최신순"은 항상 적용되는 기본 정렬이라 여기엔 없다.
-export default function FilterSidebar({ players, value, onChange }: FilterSidebarProps) {
+export default function FilterSidebar({ players, journalists, value, onChange }: FilterSidebarProps) {
   return (
     <aside className="flex w-52 shrink-0 flex-col gap-6 border-r border-zinc-200 bg-white px-3 py-6">
       <FilterGroup
