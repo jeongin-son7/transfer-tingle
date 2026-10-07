@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { KNOWN_PLAYERS } from "@/lib/dummyData";
 import type { Certainty } from "@/lib/types";
 
 interface JournalistOption {
@@ -23,7 +24,9 @@ export default function AdminPage() {
   const [journalists, setJournalists] = useState<JournalistOption[]>([]);
   // 선수명 자동완성 후보. 완전한 드롭다운이 아니라 "추천"이라, 여기 없는 새
   // 선수도 그냥 타이핑해서 등록할 수 있다 (players 테이블이 따로 없어서).
-  const [playerSuggestions, setPlayerSuggestions] = useState<string[]>([]);
+  // docs/PLAN.md 공식 선수 목록(메인 화면 필터와 동일)으로 시작해서, DB에 이미
+  // 저장된 선수 이름을 합친다 — 두 목록이 따로 노는 걸 막기 위함.
+  const [playerSuggestions, setPlayerSuggestions] = useState<string[]>(KNOWN_PLAYERS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -59,7 +62,9 @@ export default function AdminPage() {
     fetch("/api/players")
       .then((res) => res.json())
       .then((data) => {
-        if (data.ok) setPlayerSuggestions(data.players);
+        if (data.ok) {
+          setPlayerSuggestions((prev) => [...new Set([...prev, ...data.players])].sort());
+        }
       })
       .catch(() => {
         // 자동완성 후보는 필수 기능이 아니라서, 못 가져와도 조용히 넘어간다
