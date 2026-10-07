@@ -70,6 +70,7 @@ supabase/
 app/
   admin/page.tsx                   # 관리자 기사 등록 폼
   api/journalists/route.ts          # 등록 폼 드롭다운용 기자 목록 조회
+  api/players/route.ts               # 등록 폼 선수명 자동완성 후보 (완전한 드롭다운 아님)
   api/articles/route.ts              # 기사 저장 (점수 계산은 서버에서)
 supabase/
   seed.sql                           # 기자 후보 5명 초기 데이터 (idempotent)

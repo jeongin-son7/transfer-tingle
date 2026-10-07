@@ -21,6 +21,9 @@ const inputClass =
 
 export default function AdminPage() {
   const [journalists, setJournalists] = useState<JournalistOption[]>([]);
+  // 선수명 자동완성 후보. 완전한 드롭다운이 아니라 "추천"이라, 여기 없는 새
+  // 선수도 그냥 타이핑해서 등록할 수 있다 (players 테이블이 따로 없어서).
+  const [playerSuggestions, setPlayerSuggestions] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -52,6 +55,16 @@ export default function AdminPage() {
         }
       })
       .catch((err) => setLoadError(String(err)));
+
+    fetch("/api/players")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) setPlayerSuggestions(data.players);
+      })
+      .catch(() => {
+        // 자동완성 후보는 필수 기능이 아니라서, 못 가져와도 조용히 넘어간다
+        // (직접 타이핑하는 데는 지장 없음).
+      });
   }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -76,6 +89,9 @@ export default function AdminPage() {
         type: "success",
         message: `저장 완료! 계산된 개별 신뢰 점수: ${data.score}점`,
       });
+      setPlayerSuggestions((prev) =>
+        prev.includes(form.playerName) ? prev : [...prev, form.playerName].sort(),
+      );
       setForm((prev) => ({ ...prev, url: "", playerName: "", fromTeam: "", toTeam: "", summary: "" }));
     } catch (err) {
       setResult({ type: "error", message: String(err) });
@@ -139,10 +155,17 @@ export default function AdminPage() {
             관련 선수명
             <input
               required
+              list="player-suggestions"
               value={form.playerName}
               onChange={(e) => setForm((p) => ({ ...p, playerName: e.target.value }))}
               className={inputClass}
+              placeholder="기존 선수명은 자동완성, 새 선수는 직접 입력"
             />
+            <datalist id="player-suggestions">
+              {playerSuggestions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
           </label>
 
           <div className="grid grid-cols-2 gap-3">
