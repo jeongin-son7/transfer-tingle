@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { KNOWN_PLAYERS } from "@/lib/dummyData";
+import { KNOWN_PLAYERS, KNOWN_TEAMS } from "@/lib/dummyData";
 import type { Certainty } from "@/lib/types";
 
 interface JournalistOption {
@@ -27,6 +27,9 @@ export default function AdminPage() {
   // docs/PLAN.md 공식 선수 목록(메인 화면 필터와 동일)으로 시작해서, DB에 이미
   // 저장된 선수 이름을 합친다 — 두 목록이 따로 노는 걸 막기 위함.
   const [playerSuggestions, setPlayerSuggestions] = useState<string[]>(KNOWN_PLAYERS);
+  // 팀 자동완성도 선수명과 같은 방식: 더미 데이터의 팀 목록으로 시작해서 DB에
+  // 이미 저장된 팀 이름과 합친다. "이적 전/후 팀" 두 입력창이 같이 쓴다.
+  const [teamSuggestions, setTeamSuggestions] = useState<string[]>(KNOWN_TEAMS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -70,6 +73,15 @@ export default function AdminPage() {
         // 자동완성 후보는 필수 기능이 아니라서, 못 가져와도 조용히 넘어간다
         // (직접 타이핑하는 데는 지장 없음).
       });
+
+    fetch("/api/teams")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) {
+          setTeamSuggestions((prev) => [...new Set([...prev, ...data.teams])].sort());
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -97,6 +109,7 @@ export default function AdminPage() {
       setPlayerSuggestions((prev) =>
         prev.includes(form.playerName) ? prev : [...prev, form.playerName].sort(),
       );
+      setTeamSuggestions((prev) => [...new Set([...prev, form.fromTeam, form.toTeam])].sort());
       setForm((prev) => ({ ...prev, url: "", playerName: "", fromTeam: "", toTeam: "", summary: "" }));
     } catch (err) {
       setResult({ type: "error", message: String(err) });
@@ -178,6 +191,7 @@ export default function AdminPage() {
               이적 전 팀
               <input
                 required
+                list="team-suggestions"
                 value={form.fromTeam}
                 onChange={(e) => setForm((p) => ({ ...p, fromTeam: e.target.value }))}
                 className={inputClass}
@@ -187,12 +201,18 @@ export default function AdminPage() {
               이적 후 팀
               <input
                 required
+                list="team-suggestions"
                 value={form.toTeam}
                 onChange={(e) => setForm((p) => ({ ...p, toTeam: e.target.value }))}
                 className={inputClass}
               />
             </label>
           </div>
+          <datalist id="team-suggestions">
+            {teamSuggestions.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
 
           <label className="flex flex-col gap-1 text-sm text-zinc-600">
             확실성

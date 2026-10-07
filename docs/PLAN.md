@@ -69,16 +69,17 @@ supabase/
 ```
 app/
   admin/page.tsx                   # 관리자 기사 등록 폼
-  api/journalists/route.ts          # 등록 폼 드롭다운용 기자 목록 조회
+  api/journalists/route.ts          # 등록 폼 기자 드롭다운용 목록 조회
   api/players/route.ts               # DB에 저장된 선수명 조회 (자동완성 후보 일부)
+  api/teams/route.ts                  # DB에 저장된 팀 이름 조회 (자동완성 후보 일부)
+  api/articles/route.ts                # 기사 저장 (점수 계산은 서버에서)
 lib/
-  dummyData.ts에 KNOWN_PLAYERS 추가    # 공식 선수 목록(메인 화면 필터와 동일 출처) +
-                                         위 DB 조회 결과를 합쳐서 자동완성 후보로 씀
-  api/articles/route.ts              # 기사 저장 (점수 계산은 서버에서)
+  dummyData.ts에 KNOWN_PLAYERS/KNOWN_TEAMS 추가
+    # 공식 선수·팀 목록(메인 화면 필터와 동일 출처) + 위 DB 조회 결과를 합쳐서
+    # 관리자 등록 폼의 선수명/팀 자동완성 후보로 씀
+  teams.ts에 getTeamLeague() 추가      # 팀 이름 → 리그 조회 (점수 계산용)
 supabase/
   seed.sql                           # 기자 후보 5명 초기 데이터 (idempotent)
-lib/
-  teams.ts에 getTeamLeague() 추가      # 팀 이름 → 리그 조회 (점수 계산용)
 ```
 
 앞으로 늘어날 구조 (예정):

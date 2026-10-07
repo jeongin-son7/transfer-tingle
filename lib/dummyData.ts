@@ -426,3 +426,10 @@ export const rumors: Rumor[] = buildRumors();
 // 같은 출처라, 관리자 등록 폼의 선수명 자동완성에도 그대로 재사용한다
 // (실제 DB에 저장된 선수 이름과 합쳐서 보여줌 — app/admin/page.tsx 참고).
 export const KNOWN_PLAYERS: string[] = [...new Set(articles.map((article) => article.playerName))];
+
+// 더미 기사에 등장한 팀 전체(핵심 5팀 + 상대 구단들). lib/teams.ts의 CORE_TEAMS는
+// 배지 스타일용 5팀만 담고 있어서, 관리자 등록 폼의 "이적 전/후 팀" 자동완성처럼
+// 더 넓은 목록이 필요할 때는 이걸 쓴다.
+export const KNOWN_TEAMS: string[] = [
+  ...new Set(articles.flatMap((article) => [article.fromTeam, article.toTeam])),
+].sort();
