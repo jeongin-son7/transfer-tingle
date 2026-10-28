@@ -2,10 +2,11 @@
 -- Supabase 대시보드 → SQL Editor에 붙여넣고 실행. lib/dummyData.ts의 TypeScript
 -- 타입(lib/types.ts)과 필드가 1:1로 대응된다.
 --
--- 보안 참고: 이 프로젝트는 로그인 기능이 없어서(관리자 등록 폼도 인증 없이 씀),
--- 지금은 Row Level Security를 켜지 않았다 — 꺼져 있으면 anon 키로 자유롭게
--- select/insert 할 수 있어서 지금 단계(7차시 데이터 저장 기능)에 맞다. 나중에
--- 로그인을 추가하게 되면 RLS를 켜고 정책을 추가해야 한다.
+-- 보안 참고: Supabase Auth로 관리자 로그인을 붙인 뒤로는 RLS를 실제로 켜서
+-- 쓴다 — 읽기(select)는 누구나 가능(공개 서비스니까), 쓰기(insert/update/
+-- delete)는 로그인한 사용자만 가능하도록 아래쪽 정책에서 강제한다. 로그인
+-- 화면만 막아두는 건 진짜 보안이 아니다(anon key로 API를 직접 호출하면
+-- 그냥 뚫림) — RLS가 실제로 데이터베이스 단에서 막아주는 부분이다.
 
 create extension if not exists pgcrypto;
 
@@ -80,11 +81,45 @@ create table if not exists clubs (
 create unique index if not exists clubs_name_key on clubs (name);
 create index if not exists clubs_league_idx on clubs (league);
 
--- RLS가 어쩌다 켜져 있었던 적이 있어서(Table Editor에서 실수로 토글되는 등),
--- 재실행해도 확실히 꺼지도록 명시적으로 선언해둔다. 로그인 기능이 생기기 전까진
--- 이 상태를 유지한다.
-alter table journalists disable row level security;
-alter table articles disable row level security;
-alter table rumors disable row level security;
-alter table players disable row level security;
-alter table clubs disable row level security;
+-- 6) RLS 활성화 + 정책. 테이블마다 정책 2개씩:
+--    "select_all"         — 누구나(비로그인 포함) 조회 가능
+--    "write_authenticated" — 로그인한 사용자만 등록/수정/삭제 가능
+-- (for all은 select도 포함하지만, select_all이 이미 모두에게 허용하고 있어서
+-- 겹쳐도 문제없다 — 두 정책 중 하나라도 허용하면 통과하는 방식(permissive).)
+-- 재실행해도 안전하도록 먼저 drop policy if exists로 지우고 다시 만든다.
+
+alter table journalists enable row level security;
+alter table articles enable row level security;
+alter table rumors enable row level security;
+alter table players enable row level security;
+alter table clubs enable row level security;
+
+drop policy if exists "select_all" on journalists;
+create policy "select_all" on journalists for select using (true);
+drop policy if exists "write_authenticated" on journalists;
+create policy "write_authenticated" on journalists for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists "select_all" on articles;
+create policy "select_all" on articles for select using (true);
+drop policy if exists "write_authenticated" on articles;
+create policy "write_authenticated" on articles for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists "select_all" on rumors;
+create policy "select_all" on rumors for select using (true);
+drop policy if exists "write_authenticated" on rumors;
+create policy "write_authenticated" on rumors for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists "select_all" on players;
+create policy "select_all" on players for select using (true);
+drop policy if exists "write_authenticated" on players;
+create policy "write_authenticated" on players for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+drop policy if exists "select_all" on clubs;
+create policy "select_all" on clubs for select using (true);
+drop policy if exists "write_authenticated" on clubs;
+create policy "write_authenticated" on clubs for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

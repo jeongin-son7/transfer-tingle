@@ -119,12 +119,33 @@ components/
   TeamBadge.tsx                        # 이제 로고 이미지를 먼저 시도 (onError 폴백)
 ```
 
-앞으로 늘어날 구조 (예정):
+관리자 로그인 + RLS (계획서 범위 밖, 8차시 이후 추가):
 
 ```
+lib/
+  auth.ts                  # useAdminSession() — 로그인 상태 구독 훅
+  articleMutations.ts       # saveArticle() — 로그인된 브라우저가 articles에 직접 insert
+components/
+  AdminGate.tsx             # /admin 하위 페이지를 감싸서 로그인 안 했으면 /admin/login으로
 app/
-  (8차시: 메인·상세 화면이 더미 데이터 대신 Supabase 쿼리 결과를 쓰도록 교체)
+  admin/login/page.tsx      # 로그인 폼 (Supabase Auth 이메일/비밀번호)
+  admin/settings/page.tsx   # 클럽 이름·로고 URL 등을 직접 수정하는 화면
+supabase/
+  schema.sql에 RLS 정책 추가  # 테이블마다 select는 공개, insert/update/delete는 로그인 필요
 ```
+
+> **진짜 보안은 RLS가 한다.** `/admin`에 로그인 화면을 붙이는 것만으로는 안전하지
+> 않다 — anon key로 Supabase REST API를 직접 호출하면 로그인 화면을 그냥
+> 우회할 수 있기 때문이다. 그래서 `supabase/schema.sql`에서 모든 테이블에
+> RLS를 켜고, "select는 `using (true)`로 전체 공개, insert/update/delete는
+> `auth.role() = 'authenticated'`만 허용" 정책을 걸었다. 로그인 UI는 그 위에
+> 얹힌 편의 기능이다.
+>
+> 기사 등록·클럽 수정 모두 서버 API 라우트를 거치지 않고 **로그인된 브라우저가
+> Supabase에 직접** 쓴다(`@supabase/supabase-js` 클라이언트가 로그인 세션을
+> 자동으로 들고 다님). 예전엔 공개 폼이라 서버에서 점수를 재계산해 "입력값
+> 조작 방지"를 했는데, 이제는 로그인한 관리자만 쓸 수 있어서 그 방어가
+> 필요 없어졌다 — `lib/articleMutations.ts`가 클라이언트에서 바로 계산한다.
 
 ## 3. 데이터 모델 (계획서 2번 항목 기준)
 

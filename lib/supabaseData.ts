@@ -22,7 +22,7 @@ export interface LiveArticle {
   certainty: Certainty;
   summary: string;
   publishedAt: string;
-  /** articles.score — 저장 시점에 서버(app/api/articles/route.ts)가 이미 계산해 둔 값. */
+  /** articles.score — 저장 시점에 lib/articleMutations.ts가 이미 계산해 둔 값. */
   score: number;
 }
 

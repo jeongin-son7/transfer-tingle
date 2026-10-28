@@ -97,7 +97,7 @@ export default async function RumorDetailPage({
                       <p className="text-sm font-semibold text-zinc-900">{journalist.name}</p>
                       <p className="text-xs text-zinc-400">{journalist.outlet}</p>
                     </div>
-                    {/* 저장 시점에 서버(app/api/articles/route.ts)가 계산해 둔 개별 신뢰 점수 */}
+                    {/* 저장 시점에 lib/articleMutations.ts가 계산해 둔 개별 신뢰 점수 */}
                     <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700">
                       {article.score}점
                     </span>
