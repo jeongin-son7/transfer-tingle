@@ -9,15 +9,19 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   let rumors: Awaited<ReturnType<typeof fetchLiveData>>["rumors"] = [];
   let journalists: Awaited<ReturnType<typeof fetchLiveData>>["journalists"] = [];
+  let clubs: Awaited<ReturnType<typeof fetchLiveData>>["clubs"] = [];
   let loadError: string | null = null;
 
   try {
     const data = await fetchLiveData();
     rumors = data.rumors;
     journalists = data.journalists;
+    clubs = data.clubs;
   } catch (err) {
     loadError = (err as Error).message;
   }
 
-  return <HomeClient rumors={rumors} journalists={journalists} loadError={loadError} />;
+  return (
+    <HomeClient rumors={rumors} journalists={journalists} clubs={clubs} loadError={loadError} />
+  );
 }

@@ -26,10 +26,25 @@ export interface LiveArticle {
   score: number;
 }
 
+export interface LiveClub {
+  id: string;
+  name: string;
+  shortCode: string;
+  league: string;
+  logoUrl: string | null;
+}
+
 export interface LiveData {
   journalists: Journalist[];
   articles: LiveArticle[];
   rumors: Rumor[];
+  clubs: LiveClub[];
+}
+
+/** 클럽 이름 → 클럽 정보. TeamBadge가 관리자 설정 화면에서 수정한 로고/약자를
+ * 바로 반영하도록, 팀 이름 문자열로 조회하는 용도. */
+export function buildClubMap(clubs: LiveClub[]): Map<string, LiveClub> {
+  return new Map(clubs.map((club) => [club.name, club]));
 }
 
 function toJournalist(row: {
@@ -74,6 +89,22 @@ function toArticle(row: {
   };
 }
 
+function toClub(row: {
+  id: string;
+  name: string;
+  short_code: string;
+  league: string;
+  logo_url: string | null;
+}): LiveClub {
+  return {
+    id: row.id,
+    name: row.name,
+    shortCode: row.short_code,
+    league: row.league,
+    logoUrl: row.logo_url,
+  };
+}
+
 function buildRumors(articles: LiveArticle[], journalists: Journalist[]): Rumor[] {
   const journalistById = new Map(journalists.map((j) => [j.id, j]));
   const playerOrder = [...new Set(articles.map((a) => a.playerName))];
@@ -105,21 +136,24 @@ function buildRumors(articles: LiveArticle[], journalists: Journalist[]): Rumor[
 export async function fetchLiveData(): Promise<LiveData> {
   const supabase = getSupabaseClient();
 
-  const [journalistsRes, articlesRes] = await Promise.all([
+  const [journalistsRes, articlesRes, clubsRes] = await Promise.all([
     supabase.from("journalists").select("id, name, outlet, league_tiers, base_tier"),
     supabase
       .from("articles")
       .select(
         "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score",
       ),
+    supabase.from("clubs").select("id, name, short_code, league, logo_url"),
   ]);
 
   if (journalistsRes.error) throw new Error(journalistsRes.error.message);
   if (articlesRes.error) throw new Error(articlesRes.error.message);
+  if (clubsRes.error) throw new Error(clubsRes.error.message);
 
   const journalists = (journalistsRes.data ?? []).map(toJournalist);
   const articles = (articlesRes.data ?? []).map(toArticle);
+  const clubs = (clubsRes.data ?? []).map(toClub);
   const rumors = buildRumors(articles, journalists);
 
-  return { journalists, articles, rumors };
+  return { journalists, articles, rumors, clubs };
 }

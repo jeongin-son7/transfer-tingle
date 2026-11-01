@@ -37,7 +37,7 @@ const OTHER_TEAMS: TeamMeta[] = [
     name: "브라이튼",
     shortCode: "BHA",
     color: "#0057B8",
-    logoFile: "Brighton_%26_Hove_Albion_logo.svg",
+    logoFile: "Brighton_&_Hove_Albion_logo.svg",
   },
   {
     name: "파리 생제르맹",

@@ -1,9 +1,16 @@
 import Link from "next/link";
 import type { Rumor } from "@/lib/types";
+import type { LiveClub } from "@/lib/supabaseData";
 import TeamBadge from "./TeamBadge";
 import { formatRelativeDate } from "@/lib/relativeDate";
 
-export default function RumorCard({ rumor }: { rumor: Rumor }) {
+export default function RumorCard({
+  rumor,
+  clubs,
+}: {
+  rumor: Rumor;
+  clubs: Map<string, LiveClub>;
+}) {
   return (
     <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
       <Link href={`/rumor/${rumor.id}`} className="block p-4 hover:bg-zinc-50">
@@ -16,10 +23,10 @@ export default function RumorCard({ rumor }: { rumor: Rumor }) {
         </div>
 
         <div className="mt-2 flex items-center gap-2 text-sm text-zinc-600">
-          <TeamBadge team={rumor.fromTeam} />
+          <TeamBadge team={rumor.fromTeam} club={clubs.get(rumor.fromTeam)} />
           <span>{rumor.fromTeam}</span>
           <span className="text-zinc-400">→</span>
-          <TeamBadge team={rumor.toTeam} />
+          <TeamBadge team={rumor.toTeam} club={clubs.get(rumor.toTeam)} />
           <span>{rumor.toTeam}</span>
         </div>
       </Link>

@@ -12,18 +12,21 @@ import {
   sortByLatest,
   type RumorFilterState,
 } from "@/lib/filters";
+import { buildClubMap, type LiveClub } from "@/lib/supabaseData";
 import type { Journalist, Rumor } from "@/lib/types";
 
 interface HomeClientProps {
   rumors: Rumor[];
   journalists: Journalist[];
+  clubs: LiveClub[];
   loadError: string | null;
 }
 
 // app/page.tsx(서버 컴포넌트)가 Supabase에서 읽어온 데이터를 props로 받아서,
 // 필터·검색 같은 상호작용(클라이언트 상태)만 여기서 담당한다.
-export default function HomeClient({ rumors, journalists, loadError }: HomeClientProps) {
+export default function HomeClient({ rumors, journalists, clubs, loadError }: HomeClientProps) {
   const [filter, setFilter] = useState<RumorFilterState>(EMPTY_FILTER);
+  const clubMap = useMemo(() => buildClubMap(clubs), [clubs]);
 
   const players = useMemo(() => [...new Set(rumors.map((rumor) => rumor.playerName))], [rumors]);
 
@@ -70,7 +73,9 @@ export default function HomeClient({ rumors, journalists, loadError }: HomeClien
                 {loadError ? "데이터를 불러오지 못했습니다." : "조건에 맞는 이적설이 없습니다."}
               </p>
             ) : (
-              visibleRumors.map((rumor) => <RumorCard key={rumor.id} rumor={rumor} />)
+              visibleRumors.map((rumor) => (
+                <RumorCard key={rumor.id} rumor={rumor} clubs={clubMap} />
+              ))
             )}
           </section>
         </main>

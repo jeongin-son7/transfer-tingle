@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import TeamBadge from "@/components/TeamBadge";
-import { fetchLiveData } from "@/lib/supabaseData";
+import { buildClubMap, fetchLiveData } from "@/lib/supabaseData";
 import { formatRelativeDate } from "@/lib/relativeDate";
 
 // 메인 화면과 마찬가지로 항상 최신 DB 데이터를 봐야 하므로 빌드 시점에 미리
@@ -21,10 +21,12 @@ export default async function RumorDetailPage({
   let timeline: Awaited<ReturnType<typeof fetchLiveData>>["articles"] = [];
   let rumor: Awaited<ReturnType<typeof fetchLiveData>>["rumors"][number] | undefined;
   let journalists: Awaited<ReturnType<typeof fetchLiveData>>["journalists"] = [];
+  let clubs: Awaited<ReturnType<typeof fetchLiveData>>["clubs"] = [];
 
   try {
     const data = await fetchLiveData();
     journalists = data.journalists;
+    clubs = data.clubs;
     rumor = data.rumors.find((r) => r.playerName === playerName);
     timeline = data.articles
       .filter((article) => article.playerName === playerName)
@@ -54,6 +56,8 @@ export default async function RumorDetailPage({
     notFound();
   }
 
+  const clubMap = buildClubMap(clubs);
+
   return (
     <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white px-6 py-4">
@@ -69,10 +73,10 @@ export default async function RumorDetailPage({
         <section>
           <h1 className="text-2xl font-bold text-zinc-900">{rumor.playerName}</h1>
           <div className="mt-2 flex items-center gap-2 text-sm text-zinc-600">
-            <TeamBadge team={rumor.fromTeam} />
+            <TeamBadge team={rumor.fromTeam} club={clubMap.get(rumor.fromTeam)} />
             <span>{rumor.fromTeam}</span>
             <span className="text-zinc-400">→</span>
-            <TeamBadge team={rumor.toTeam} />
+            <TeamBadge team={rumor.toTeam} club={clubMap.get(rumor.toTeam)} />
             <span>{rumor.toTeam}</span>
           </div>
           <p className="mt-3 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">
