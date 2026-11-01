@@ -214,6 +214,7 @@ function ArticleForm() {
           <PlayerSearchSelect
             players={players}
             selected={selectedPlayer}
+            teams={teamSuggestions}
             onSelect={(player) => {
               setSelectedPlayer(player);
               setForm((p) => ({ ...p, playerName: player.name, fromTeam: player.currentTeam }));

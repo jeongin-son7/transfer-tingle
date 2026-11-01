@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FocusEvent } from "react";
+import TeamSearchInput from "./TeamSearchInput";
 
 export interface PlayerOption {
   id: string;
@@ -12,6 +13,9 @@ interface PlayerSearchSelectProps {
   players: PlayerOption[];
   selected: PlayerOption | null;
   onSelect: (player: PlayerOption) => void;
+  /** 새 선수 등록 시 "현재 소속팀"도 팀 검색 드롭다운(TeamSearchInput)으로
+   * 고를 수 있게, 이적 전/후 팀 입력과 같은 팀 목록을 그대로 받아 쓴다. */
+  teams: string[];
   /** 검색해도 없는 선수를 새로 등록할 때. players 테이블에 insert하고
    * 성공하면 그 결과를 돌려줘야 한다(부모가 바로 선택 처리). */
   onCreateNew: (input: { name: string; currentTeam: string }) => Promise<PlayerOption>;
@@ -30,6 +34,7 @@ export default function PlayerSearchSelect({
   players,
   selected,
   onSelect,
+  teams,
   onCreateNew,
 }: PlayerSearchSelectProps) {
   const [query, setQuery] = useState("");
@@ -120,18 +125,20 @@ export default function PlayerSearchSelect({
                 새 선수로 추가: {trimmed}
               </p>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newPlayerTeam}
-                  onChange={(e) => setNewPlayerTeam(e.target.value)}
-                  placeholder="현재 소속팀"
-                  className="flex-1 rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
-                />
+                <div className="flex-1">
+                  <TeamSearchInput
+                    teams={teams}
+                    value={newPlayerTeam}
+                    onChange={setNewPlayerTeam}
+                    placeholder="현재 소속팀 검색"
+                    inputClassName="w-full rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleCreate}
                   disabled={creating || !newPlayerTeam.trim()}
-                  className="shrink-0 rounded bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+                  className="h-fit shrink-0 rounded bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
                 >
                   {creating ? "추가 중..." : "추가"}
                 </button>

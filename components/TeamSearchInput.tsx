@@ -7,9 +7,12 @@ interface TeamSearchInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** 다른 곳(PlayerSearchSelect의 미니 폼 등)에 더 작게 박아 넣을 때 기본
+   * 스타일을 덮어쓰기 위한 옵션. */
+  inputClassName?: string;
 }
 
-const inputClass =
+const defaultInputClass =
   "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-600";
 
 // 팀 이름은 선수와 달리 "반드시 목록에서 선택"을 강제하지 않는다 — 클럽
@@ -27,6 +30,7 @@ export default function TeamSearchInput({
   value,
   onChange,
   placeholder,
+  inputClassName,
 }: TeamSearchInputProps) {
   const [open, setOpen] = useState(false);
 
@@ -52,7 +56,7 @@ export default function TeamSearchInput({
         }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
-        className={inputClass}
+        className={inputClassName ?? defaultInputClass}
       />
 
       {open && filtered.length > 0 && (
