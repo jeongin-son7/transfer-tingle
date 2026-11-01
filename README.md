@@ -42,20 +42,35 @@ npm run dev
    에러 메시지를 보고 원인 확인 (환경변수 비어있음 / 아직 schema.sql 안 돌림 등).
 4. [`/admin`](http://localhost:3000/admin) 에서 기사 등록 테스트 — 저장하면 Supabase
    대시보드 Table Editor의 `articles` 테이블에서 바로 확인 가능.
-5. **관리자 계정 만들기** (로그인 기능 추가 후 필수): Supabase 대시보드 →
-   Authentication → Users → **Add user** → 이메일·비밀번호 직접 입력해서 계정
-   1개 생성 ("Auto Confirm User" 체크해서 이메일 인증 단계 생략). 이 계정으로
-   `/admin/login`에서 로그인하면 기사 등록·클럽 설정을 쓸 수 있다.
+5. **관리자 계정 만들기**: [`/signup`](http://localhost:3000/signup)에서 본인
+   이메일로 직접 가입하거나, Supabase 대시보드 → Authentication → Users →
+   **Add user**로 계정을 만든다("Auto Confirm User" 체크하면 이메일 인증
+   단계 생략). 가입하면 트리거가 `profiles` 테이블에 행을 자동으로 만들지만
+   `is_admin`은 기본 `false`다 — 본인을 관리자로 만들려면 SQL Editor에서
+   한 번 직접 실행:
+   ```sql
+   update profiles set is_admin = true where email = '본인 이메일';
+   ```
 
 ## 로그인·권한
 
-- `/admin`, `/admin/settings`는 로그인해야 쓸 수 있다 (`/admin/login`에서 로그인).
-- 진짜 보안은 **RLS**(`supabase/schema.sql`)가 담당한다 — 모든 테이블이 "읽기는
-  누구나, 쓰기(등록/수정/삭제)는 로그인한 사용자만" 정책으로 되어 있어서,
-  로그인 화면을 우회해서 anon key로 직접 API를 호출해도 쓰기는 막힌다.
+- **기사 등록**(`/admin`)은 **로그인한 사용자 누구나** 쓸 수 있다 — 관리자가
+  아니어도 가입만 하면 된다.
+- **클럽 설정**(`/admin/settings`, 팀 엠블럼 등)은 **관리자만** 쓸 수 있다.
+  로그인했지만 관리자가 아니면 "관리자 전용 페이지입니다" 화면이 뜬다.
+- 누가 관리자인지는 `profiles.is_admin` 컬럼으로 구분한다. 가입 시
+  Supabase가 `auth.users`에 사용자를 만들면, DB 트리거(`handle_new_user`,
+  `supabase/schema.sql`)가 `profiles`에 `is_admin = false`로 행을 복사해둔다.
+  관리자로 승격하려면 위 "관리자 계정 만들기"의 SQL을 직접 실행해야 한다
+  (앱 화면에서 승격하는 기능은 없음 — 의도적으로 SQL Editor를 거치게 해서
+  아무나 자기 자신을 관리자로 만들 수 없게 함).
+- 진짜 보안은 **RLS**(`supabase/schema.sql`)가 담당한다 — `articles`는 "읽기는
+  누구나, 쓰기는 로그인한 사용자 누구나" 정책, `clubs`는 "읽기는 누구나,
+  쓰기는 `profiles.is_admin = true`인 사용자만" 정책으로 되어 있어서, 로그인
+  화면을 우회해서 anon key로 직접 API를 호출해도 이 규칙은 그대로 지켜진다.
 - 기사 등록(`lib/articleMutations.ts`)과 클럽 설정(`app/admin/settings/page.tsx`)
   모두 로그인된 브라우저가 Supabase에 **직접** 쓴다 (서버 API 라우트를 거치지
-  않음 — RLS가 "로그인했는지"로 막아주기 때문에 안전함).
+  않음 — RLS가 "로그인했는지/관리자인지"로 막아주기 때문에 안전함).
 
 ## 현재 진행 상태
 
@@ -72,3 +87,5 @@ npm run dev
 - [x] 8차시 이후: 클럽/선수 데이터 현실화(5대 리그 96개 구단, 실제 선수 45명,
       실제 이적 사례 18개 기사), 관리자 로그인(Supabase Auth) + RLS로 쓰기 보호,
       `/admin/settings`에서 클럽 로고 등 직접 수정
+- [x] 8차시 이후: 회원가입(`/signup`) 추가, 기사 등록은 로그인한 사용자 누구나
+      가능하도록 개방, 클럽 설정만 `profiles.is_admin`으로 관리자 전용 유지

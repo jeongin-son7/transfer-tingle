@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 
 export default function AdminLoginPage() {
@@ -68,6 +69,10 @@ export default function AdminLoginPage() {
         >
           {submitting ? "로그인 중..." : "로그인"}
         </button>
+
+        <Link href="/signup" className="text-center text-xs text-zinc-400 hover:text-emerald-600">
+          계정이 없으신가요? 회원가입
+        </Link>
       </form>
     </div>
   );

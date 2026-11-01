@@ -81,11 +81,51 @@ create table if not exists clubs (
 create unique index if not exists clubs_name_key on clubs (name);
 create index if not exists clubs_league_idx on clubs (league);
 
--- 6) RLS 활성화 + 정책. 테이블마다 정책 2개씩:
+-- 6) 회원 프로필 테이블. 기사 등록은 로그인한 사용자 누구나 가능하지만, 클럽
+-- 설정(엠블럼 등) 수정은 관리자만 가능해야 해서 "이 사람이 관리자인가"를
+-- 구분할 플래그가 필요하다. auth.users는 우리가 직접 열 수 없으니(Supabase
+-- 내부 테이블), 가입할 때마다 트리거로 이 테이블에 행을 하나씩 복사해둔다.
+create table if not exists profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  email text,
+  is_admin boolean not null default false
+);
+
+-- 가입(auth.users insert) 시 자동으로 profiles 행 생성.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email)
+  values (new.id, new.email)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 이 스키마를 처음 실행하기 전에 이미 만들어둔 계정(Supabase 대시보드에서
+-- 수동으로 만든 관리자 계정 등)은 트리거가 못 잡았으니 한 번 따라잡아준다.
+insert into profiles (id, email)
+select id, email from auth.users
+on conflict (id) do nothing;
+
+-- 관리자로 만들고 싶은 계정은 이 스키마 실행 후 아래 SQL을 직접 한 번
+-- 실행해서 승격한다 (이메일 주소를 본인 관리자 계정으로 바꿔서):
+--   update profiles set is_admin = true where email = 'your-admin@example.com';
+
+-- 7) RLS 활성화 + 정책. 테이블마다 기본은 정책 2개씩:
 --    "select_all"         — 누구나(비로그인 포함) 조회 가능
 --    "write_authenticated" — 로그인한 사용자만 등록/수정/삭제 가능
 -- (for all은 select도 포함하지만, select_all이 이미 모두에게 허용하고 있어서
 -- 겹쳐도 문제없다 — 두 정책 중 하나라도 허용하면 통과하는 방식(permissive).)
+-- clubs(클럽 설정)만 예외 — 관리자(profiles.is_admin = true)만 쓰기 가능.
 -- 재실행해도 안전하도록 먼저 drop policy if exists로 지우고 다시 만든다.
 
 alter table journalists enable row level security;
@@ -93,6 +133,7 @@ alter table articles enable row level security;
 alter table rumors enable row level security;
 alter table players enable row level security;
 alter table clubs enable row level security;
+alter table profiles enable row level security;
 
 drop policy if exists "select_all" on journalists;
 create policy "select_all" on journalists for select using (true);
@@ -120,6 +161,14 @@ create policy "write_authenticated" on players for all
 
 drop policy if exists "select_all" on clubs;
 create policy "select_all" on clubs for select using (true);
+-- clubs만 예외: 로그인한 누구나가 아니라 관리자만 쓰기 가능.
 drop policy if exists "write_authenticated" on clubs;
-create policy "write_authenticated" on clubs for all
-  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+drop policy if exists "write_admin_only" on clubs;
+create policy "write_admin_only" on clubs for all
+  using (exists (select 1 from profiles where id = auth.uid() and is_admin = true))
+  with check (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+
+drop policy if exists "select_all" on profiles;
+create policy "select_all" on profiles for select using (true);
+-- profiles는 트리거(security definer)만 쓰고 앱에서 직접 insert/update 안 함 →
+-- 쓰기 정책 없음(기본값으로 막힘). 관리자 승격은 SQL Editor에서 수동으로.

@@ -4,7 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { KNOWN_TEAMS } from "@/lib/dummyData";
 import PlayerSearchSelect, { type PlayerOption } from "@/components/PlayerSearchSelect";
-import AdminGate from "@/components/AdminGate";
+import AuthGate from "@/components/AuthGate";
+import { useAdminSession, useIsAdmin } from "@/lib/auth";
 import { saveArticle, type JournalistRow } from "@/lib/articleMutations";
 import type { Certainty } from "@/lib/types";
 
@@ -18,6 +19,8 @@ const inputClass =
   "rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-600";
 
 function ArticleForm() {
+  const session = useAdminSession();
+  const isAdmin = useIsAdmin(session);
   const [journalists, setJournalists] = useState<JournalistRow[]>([]);
   // 선수는 players 마스터 테이블에서 검색해서 "선택"하는 방식 (자유 입력 불가).
   // 선택하면 그 선수의 현재 소속팀으로 "이적 전 팀"을 자동으로 채운다.
@@ -117,10 +120,12 @@ function ArticleForm() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-6 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-zinc-900">관리자 기사 등록</h1>
-        <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
-          클럽 설정 →
-        </Link>
+        <h1 className="text-xl font-bold text-zinc-900">기사 등록</h1>
+        {isAdmin && (
+          <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
+            클럽 설정 →
+          </Link>
+        )}
       </div>
 
       {loadError && (
@@ -275,10 +280,10 @@ function ArticleForm() {
 
 export default function AdminPage() {
   return (
-    <AdminGate>
+    <AuthGate>
       <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
         <ArticleForm />
       </div>
-    </AdminGate>
+    </AuthGate>
   );
 }

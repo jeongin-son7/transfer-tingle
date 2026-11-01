@@ -3,15 +3,17 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAdminSession } from "@/lib/auth";
+import { useAdminSession, useIsAdmin } from "@/lib/auth";
 import { getSupabaseClient } from "@/lib/supabase";
 
-// /admin 아래 페이지들을 감싸서 로그인 안 한 사람은 /admin/login으로 돌려보낸다.
-// 진짜 보안은 RLS(supabase/schema.sql)가 하고 있고, 이건 그냥 화면 UX다 —
-// 로그인 안 한 사람은 쓰기 시도를 해봤자 DB가 거부하지만, 그 전에 보기 좋게
-// 로그인 화면으로 안내해주는 역할.
+// 관리자 전용 페이지(클럽 설정)를 감싼다. 기사 등록은 로그인한 사용자 누구나
+// 가능하도록 바뀌어서(AuthGate), 여기서는 로그인 여부뿐 아니라 profiles.is_admin도
+// 확인한다. 진짜 보안은 RLS(supabase/schema.sql의 write_admin_only 정책)가
+// 하고 있고, 이건 그냥 화면 UX다 — 관리자가 아닌 사람이 쓰기 시도를 해봤자
+// DB가 거부하지만, 그 전에 보기 좋게 안내해주는 역할.
 export default function AdminGate({ children }: { children: ReactNode }) {
   const session = useAdminSession();
+  const isAdmin = useIsAdmin(session);
   const router = useRouter();
 
   useEffect(() => {
@@ -20,12 +22,23 @@ export default function AdminGate({ children }: { children: ReactNode }) {
     }
   }, [session, router]);
 
-  if (session === undefined) {
+  if (session === undefined || (session !== null && isAdmin === undefined)) {
     return <p className="p-6 text-sm text-zinc-400">로그인 확인 중...</p>;
   }
 
   if (session === null) {
     return null;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-2 bg-zinc-50 px-6 text-center">
+        <p className="text-sm text-zinc-600">관리자 전용 페이지입니다.</p>
+        <Link href="/" className="text-sm text-emerald-600 hover:underline">
+          메인으로 돌아가기
+        </Link>
+      </div>
+    );
   }
 
   const handleLogout = async () => {
