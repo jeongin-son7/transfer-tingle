@@ -37,6 +37,13 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
   const { favorites, toggleFavorite } = useFavoritePlayers(session);
 
   const players = useMemo(() => [...new Set(rumors.map((rumor) => rumor.playerName))], [rumors]);
+  // "팀별" 필터는 더 이상 고정된 5팀(CORE_TEAMS)이 아니라, 실제 이적설에
+  // 등장하는 모든 팀(이적 전+후)을 보여준다 — 5대 리그 96개 구단 아무 팀이나
+  // 이적설이 있으면 필터에 뜨도록.
+  const teams = useMemo(
+    () => [...new Set(rumors.flatMap((rumor) => [rumor.fromTeam, rumor.toTeam]))].sort(),
+    [rumors],
+  );
 
   const visibleRumors = useMemo(
     () => sortRumors(filterRumors(rumors, filter), sort),
@@ -48,6 +55,7 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
       <Header />
       <div className="mx-auto flex w-full max-w-5xl flex-1">
         <FilterSidebar
+          teams={teams}
           players={players}
           journalists={journalists}
           value={filter}
