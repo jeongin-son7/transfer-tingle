@@ -8,6 +8,7 @@
 // encodeURIComponent(playerName)을 쓴다 (상세 페이지 라우트 /rumor/[id]에서
 // decodeURIComponent로 되돌려 player_name으로 조회).
 
+import { cache } from "react";
 import { getSupabaseClient } from "./supabase";
 import { calculateAggregateScore } from "./trustScore";
 import type { Certainty, Journalist, Rumor } from "./types";
@@ -24,6 +25,11 @@ export interface LiveArticle {
   publishedAt: string;
   /** articles.score — 저장 시점에 lib/articleMutations.ts가 이미 계산해 둔 값. */
   score: number;
+  /** 이 기사를 등록한 사용자(마이페이지 "내 기사"용). 가입 이전에 들어간
+   * 기사는 null. */
+  createdBy: string | null;
+  /** DB에 실제로 등록된 시각(ISO). published_at(사용자가 입력하는 기사 날짜)과는 다름. */
+  createdAt: string;
 }
 
 export interface LiveClub {
@@ -74,6 +80,8 @@ function toArticle(row: {
   summary: string | null;
   published_at: string;
   score: number | null;
+  created_by: string | null;
+  created_at: string;
 }): LiveArticle {
   return {
     id: row.id,
@@ -86,6 +94,8 @@ function toArticle(row: {
     summary: row.summary ?? "",
     publishedAt: row.published_at,
     score: row.score ?? 0,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
   };
 }
 
@@ -105,15 +115,29 @@ function toClub(row: {
   };
 }
 
-function buildRumors(articles: LiveArticle[], journalists: Journalist[]): Rumor[] {
+const RECENT_MS = 24 * 60 * 60 * 1000;
+
+function buildRumors(
+  articles: LiveArticle[],
+  journalists: Journalist[],
+  favoriteCounts: Map<string, number>,
+  viewCounts: Map<string, number>,
+): Rumor[] {
   const journalistById = new Map(journalists.map((j) => [j.id, j]));
   const playerOrder = [...new Set(articles.map((a) => a.playerName))];
+  // 요청(서버 데이터 조회) 시점에 한 번만 계산한다 — 컴포넌트 렌더링 중에
+  // Date.now()를 직접 부르면 순수하지 않은 렌더가 되기 때문.
+  const now = Date.now();
 
   return playerOrder.map((playerName) => {
     const playerArticles = articles.filter((a) => a.playerName === playerName);
     const latestArticle = [...playerArticles].sort((a, b) =>
       b.publishedAt.localeCompare(a.publishedAt),
     )[0];
+    const latestCreatedAt = playerArticles.reduce(
+      (latest, a) => (a.createdAt > latest ? a.createdAt : latest),
+      playerArticles[0].createdAt,
+    );
 
     return {
       id: encodeURIComponent(playerName),
@@ -129,31 +153,51 @@ function buildRumors(articles: LiveArticle[], journalists: Journalist[]): Rumor[
         url: latestArticle.url,
         publishedAt: latestArticle.publishedAt,
       },
+      favoriteCount: favoriteCounts.get(playerName) ?? 0,
+      viewCount: viewCounts.get(playerName) ?? 0,
+      latestCreatedAt,
+      isRecentlyAdded: now - new Date(latestCreatedAt).getTime() < RECENT_MS,
     };
   });
 }
 
-export async function fetchLiveData(): Promise<LiveData> {
+// React.cache로 감싸서 같은 요청(request) 안에서는 한 번만 실제로 조회한다
+// — generateMetadata()와 페이지 컴포넌트가 둘 다 fetchLiveData()를 부르면
+// 중복 조회가 생기는데, 이걸 막아준다.
+export const fetchLiveData = cache(async (): Promise<LiveData> => {
   const supabase = getSupabaseClient();
 
-  const [journalistsRes, articlesRes, clubsRes] = await Promise.all([
+  const [journalistsRes, articlesRes, clubsRes, favoritesRes, viewsRes] = await Promise.all([
     supabase.from("journalists").select("id, name, outlet, league_tiers, base_tier"),
     supabase
       .from("articles")
       .select(
-        "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score",
+        "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score, created_by, created_at",
       ),
     supabase.from("clubs").select("id, name, short_code, league, logo_url"),
+    supabase.from("favorites").select("player_name"),
+    supabase.from("rumor_views").select("player_name, view_count"),
   ]);
 
   if (journalistsRes.error) throw new Error(journalistsRes.error.message);
   if (articlesRes.error) throw new Error(articlesRes.error.message);
   if (clubsRes.error) throw new Error(clubsRes.error.message);
+  if (favoritesRes.error) throw new Error(favoritesRes.error.message);
+  if (viewsRes.error) throw new Error(viewsRes.error.message);
 
   const journalists = (journalistsRes.data ?? []).map(toJournalist);
   const articles = (articlesRes.data ?? []).map(toArticle);
   const clubs = (clubsRes.data ?? []).map(toClub);
-  const rumors = buildRumors(articles, journalists);
+
+  const favoriteCounts = new Map<string, number>();
+  for (const row of favoritesRes.data ?? []) {
+    favoriteCounts.set(row.player_name, (favoriteCounts.get(row.player_name) ?? 0) + 1);
+  }
+  const viewCounts = new Map(
+    (viewsRes.data ?? []).map((row) => [row.player_name, row.view_count as number]),
+  );
+
+  const rumors = buildRumors(articles, journalists, favoriteCounts, viewCounts);
 
   return { journalists, articles, rumors, clubs };
-}
+});

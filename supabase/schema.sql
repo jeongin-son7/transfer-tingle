@@ -34,11 +34,21 @@ create table if not exists articles (
   summary text,
   published_at date not null,
   -- 계산된 개별 신뢰 점수 (lib/trustScore.ts calculateArticleScore와 동일한 값)
-  score integer
+  score integer,
+  -- 누가 등록했는지(마이페이지 "내가 등록한 기사", 본인 글만 수정/삭제 가능하게
+  -- 하는 용도). 회원가입 이전에 만들어진 기사는 null(작성자 없음 = 관리자만 수정 가능).
+  created_by uuid references auth.users (id) on delete set null,
+  -- 실제 DB에 등록된 시각("최근 등록" 하이라이트용). published_at은 사용자가
+  -- 직접 입력하는 "기사 작성일"이라 실제 등록 시각과 다를 수 있어서 따로 둔다.
+  created_at timestamptz not null default now()
 );
+
+alter table articles add column if not exists created_by uuid references auth.users (id) on delete set null;
+alter table articles add column if not exists created_at timestamptz not null default now();
 
 create index if not exists articles_journalist_id_idx on articles (journalist_id);
 create index if not exists articles_player_name_idx on articles (player_name);
+create index if not exists articles_created_by_idx on articles (created_by);
 
 -- 3) 이적설 테이블
 create table if not exists rumors (
@@ -120,7 +130,68 @@ on conflict (id) do nothing;
 -- 실행해서 승격한다 (이메일 주소를 본인 관리자 계정으로 바꿔서):
 --   update profiles set is_admin = true where email = 'your-admin@example.com';
 
--- 7) RLS 활성화 + 정책. 테이블마다 기본은 정책 2개씩:
+-- 7) 즐겨찾기. 이적설(player_name 기준 — rumors 테이블을 안 쓰는 것과 동일한
+-- 이유로 player_name을 그대로 키로 씀)마다 사용자별로 하나씩만 존재.
+-- 즐겨찾기 "순" 정렬이 전체 사용자 기준 인기도를 보여줘야 해서, 누가
+-- 몇 명한테 즐겨찾기됐는지는 공개로 집계 가능하게 select는 전체 공개로 둔다
+-- (민감한 정보는 아님 — "이 선수를 몇 명이 즐겨찾기했는지"뿐).
+create table if not exists favorites (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  player_name text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, player_name)
+);
+
+create index if not exists favorites_player_name_idx on favorites (player_name);
+
+-- 8) 댓글. 이적설(player_name) 하나에 여러 댓글.
+create table if not exists comments (
+  id uuid primary key default gen_random_uuid(),
+  player_name text not null,
+  user_id uuid references auth.users (id) on delete set null,
+  email text,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists comments_player_name_idx on comments (player_name);
+
+-- 9) 기사별 신뢰도 투표(동의/반대). 기자·매체가 매긴 점수와는 별개로, 실제
+-- 방문자들이 "이 기사 말이 되는 것 같다"를 직접 투표하는 기능. 유저당 기사당
+-- 투표 1개(의견 바꾸면 upsert로 덮어씀).
+create table if not exists article_votes (
+  article_id uuid not null references articles (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  vote text not null check (vote in ('agree', 'disagree')),
+  created_at timestamptz not null default now(),
+  primary key (article_id, user_id)
+);
+
+create index if not exists article_votes_article_id_idx on article_votes (article_id);
+
+-- 10) 조회수. player_name 하나당 숫자 하나. 직접 update 정책을 열어두면 아무나
+-- REST API로 숫자를 마음대로 조작할 수 있어서, 증가는 아래 보안 definer 함수
+-- (increment_rumor_view)로만 가능하게 막는다(테이블 자체엔 쓰기 정책 없음).
+create table if not exists rumor_views (
+  player_name text primary key,
+  view_count integer not null default 0
+);
+
+create or replace function public.increment_rumor_view(target_player_name text)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into rumor_views (player_name, view_count)
+  values (target_player_name, 1)
+  on conflict (player_name) do update set view_count = rumor_views.view_count + 1;
+end;
+$$;
+
+grant execute on function public.increment_rumor_view(text) to anon, authenticated;
+
+-- 11) RLS 활성화 + 정책. 테이블마다 기본은 정책 2개씩:
 --    "select_all"         — 누구나(비로그인 포함) 조회 가능
 --    "write_authenticated" — 로그인한 사용자만 등록/수정/삭제 가능
 -- (for all은 select도 포함하지만, select_all이 이미 모두에게 허용하고 있어서
@@ -134,6 +205,10 @@ alter table rumors enable row level security;
 alter table players enable row level security;
 alter table clubs enable row level security;
 alter table profiles enable row level security;
+alter table favorites enable row level security;
+alter table comments enable row level security;
+alter table article_votes enable row level security;
+alter table rumor_views enable row level security;
 
 drop policy if exists "select_all" on journalists;
 create policy "select_all" on journalists for select using (true);
@@ -143,9 +218,28 @@ create policy "write_authenticated" on journalists for all
 
 drop policy if exists "select_all" on articles;
 create policy "select_all" on articles for select using (true);
+-- 등록(insert)은 로그인한 사용자 누구나. 수정/삭제는 본인이 쓴 기사이거나
+-- 관리자만(마이페이지 "내 기사만 수정/삭제" 기능의 실제 방어선).
 drop policy if exists "write_authenticated" on articles;
-create policy "write_authenticated" on articles for all
-  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+drop policy if exists "insert_authenticated" on articles;
+create policy "insert_authenticated" on articles for insert
+  with check (auth.role() = 'authenticated');
+drop policy if exists "update_own_or_admin" on articles;
+create policy "update_own_or_admin" on articles for update
+  using (
+    created_by = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  )
+  with check (
+    created_by = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  );
+drop policy if exists "delete_own_or_admin" on articles;
+create policy "delete_own_or_admin" on articles for delete
+  using (
+    created_by = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  );
 
 drop policy if exists "select_all" on rumors;
 create policy "select_all" on rumors for select using (true);
@@ -172,3 +266,44 @@ drop policy if exists "select_all" on profiles;
 create policy "select_all" on profiles for select using (true);
 -- profiles는 트리거(security definer)만 쓰고 앱에서 직접 insert/update 안 함 →
 -- 쓰기 정책 없음(기본값으로 막힘). 관리자 승격은 SQL Editor에서 수동으로.
+
+-- favorites: 전체 공개 조회(즐겨찾기 수를 집계해서 인기순 정렬에 씀), 본인
+-- 즐겨찾기만 추가/삭제 가능.
+drop policy if exists "select_all" on favorites;
+create policy "select_all" on favorites for select using (true);
+drop policy if exists "insert_own" on favorites;
+create policy "insert_own" on favorites for insert with check (user_id = auth.uid());
+drop policy if exists "delete_own" on favorites;
+create policy "delete_own" on favorites for delete using (user_id = auth.uid());
+
+-- comments: 전체 공개 조회, 로그인한 사용자만 작성, 본인 댓글이거나 관리자만
+-- 삭제. 수정 기능은 없음(간단하게 삭제 후 재작성).
+drop policy if exists "select_all" on comments;
+create policy "select_all" on comments for select using (true);
+drop policy if exists "insert_authenticated" on comments;
+create policy "insert_authenticated" on comments for insert
+  with check (auth.role() = 'authenticated' and user_id = auth.uid());
+drop policy if exists "delete_own_or_admin" on comments;
+create policy "delete_own_or_admin" on comments for delete
+  using (
+    user_id = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  );
+
+-- article_votes: 전체 공개 조회(찬반 집계 표시용), 본인 투표만 추가/수정(의견
+-- 변경)/삭제(투표 취소) 가능.
+drop policy if exists "select_all" on article_votes;
+create policy "select_all" on article_votes for select using (true);
+drop policy if exists "insert_own" on article_votes;
+create policy "insert_own" on article_votes for insert with check (user_id = auth.uid());
+drop policy if exists "update_own" on article_votes;
+create policy "update_own" on article_votes for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "delete_own" on article_votes;
+create policy "delete_own" on article_votes for delete using (user_id = auth.uid());
+
+-- rumor_views: 조회수는 전체 공개로 보여주되(인기순 정렬용), 직접 insert/update
+-- 정책은 안 둔다 — 증가는 반드시 increment_rumor_view() 함수(security definer)를
+-- 통해서만 가능하게 막아서, 누가 REST API로 숫자를 마음대로 못 올리게 한다.
+drop policy if exists "select_all" on rumor_views;
+create policy "select_all" on rumor_views for select using (true);

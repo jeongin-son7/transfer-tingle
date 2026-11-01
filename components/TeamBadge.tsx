@@ -25,7 +25,7 @@ export default function TeamBadge({ team, club }: TeamBadgeProps) {
         src={logoUrl}
         alt={team}
         title={team}
-        className="h-6 w-6 shrink-0 rounded-full bg-white object-contain ring-1 ring-zinc-200"
+        className="h-6 w-6 shrink-0 rounded-full bg-white object-contain ring-1 ring-zinc-200 dark:ring-zinc-700"
         onError={() => setLogoFailed(true)}
       />
     );

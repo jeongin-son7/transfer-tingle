@@ -40,9 +40,9 @@ export default function SignupPage() {
 
   if (done) {
     return (
-      <div className="flex min-h-full flex-1 items-center justify-center bg-zinc-50 px-6">
-        <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
-          <h1 className="text-lg font-bold text-zinc-900">가입 완료</h1>
+      <div className="flex min-h-full flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
+        <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">가입 완료</h1>
           <p className="text-sm text-zinc-600">
             이메일 인증이 켜져 있는 프로젝트라면, 받은 메일의 인증 링크를 눌러야
             로그인할 수 있어요. 인증 메일이 안 왔다면 바로 로그인을 시도해보세요.
@@ -59,12 +59,12 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 items-center justify-center bg-zinc-50 px-6">
+    <div className="flex min-h-full flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+        className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
       >
-        <h1 className="text-lg font-bold text-zinc-900">회원가입</h1>
+        <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">회원가입</h1>
         <p className="text-xs text-zinc-400">
           가입하면 로그인해서 이적설 기사를 직접 등록할 수 있어요.
         </p>

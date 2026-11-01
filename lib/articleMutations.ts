@@ -33,7 +33,7 @@ export interface JournalistRow {
   base_tier: number;
 }
 
-export async function saveArticle(input: ArticleFormInput, journalist: JournalistRow) {
+export async function saveArticle(input: ArticleFormInput, journalist: JournalistRow, userId: string) {
   const supabase = getSupabaseClient();
 
   const league = getTeamLeague(input.fromTeam);
@@ -61,6 +61,7 @@ export async function saveArticle(input: ArticleFormInput, journalist: Journalis
       summary: input.summary,
       published_at: input.publishedAt,
       score,
+      created_by: userId,
     })
     .select()
     .single();
@@ -70,4 +71,61 @@ export async function saveArticle(input: ArticleFormInput, journalist: Journalis
   }
 
   return { article: data, score };
+}
+
+export interface ArticleEditInput {
+  url: string;
+  certainty: Certainty;
+  summary: string;
+  publishedAt: string;
+}
+
+/** 마이페이지에서 "내 기사" 수정. 선수/팀/기자는 바꾸지 않고(그러면 사실상
+ * 새 기사라), 링크·확실성·요약·날짜만 고친다. 확실성이 바뀌면 점수도 다시
+ * 계산해서 같이 저장한다 — league는 from_team 기준으로 그대로 다시 구한다. */
+export async function updateArticle(
+  articleId: string,
+  input: ArticleEditInput,
+  fromTeam: string,
+  journalist: JournalistRow,
+) {
+  const supabase = getSupabaseClient();
+
+  const league = getTeamLeague(fromTeam);
+  const journalistForScore: Journalist = {
+    id: journalist.id,
+    name: journalist.name,
+    outlet: journalist.outlet,
+    leagueTiers: journalist.league_tiers ?? [],
+    baseTier: journalist.base_tier,
+  };
+  const score = calculateArticleScore({ league, certainty: input.certainty }, journalistForScore);
+
+  const { data, error } = await supabase
+    .from("articles")
+    .update({
+      url: input.url,
+      certainty: input.certainty,
+      summary: input.summary,
+      published_at: input.publishedAt,
+      score,
+    })
+    .eq("id", articleId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return { article: data, score };
+}
+
+export async function deleteArticle(articleId: string) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("articles").delete().eq("id", articleId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

@@ -34,7 +34,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-6 py-2 text-xs text-zinc-400">
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-6 py-2 text-xs text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
         <Link href="/" className="hover:text-emerald-600">
           ← 메인으로
         </Link>

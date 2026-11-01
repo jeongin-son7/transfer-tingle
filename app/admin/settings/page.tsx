@@ -117,7 +117,7 @@ function ClubSettings() {
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-zinc-900">클럽 설정</h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">클럽 설정</h1>
         <Link href="/admin" className="text-sm text-zinc-500 hover:text-emerald-600">
           ← 기사 등록으로
         </Link>
@@ -142,10 +142,10 @@ function ClubSettings() {
         className="mb-4 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-600"
       />
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 text-xs text-zinc-400">
+            <tr className="border-b border-zinc-200 text-xs text-zinc-400 dark:border-zinc-800">
               <th className="px-2 py-2 font-medium">리그</th>
               <th className="px-2 py-2 font-medium">이름</th>
               <th className="px-2 py-2 font-medium">약자</th>
@@ -176,7 +176,7 @@ function ClubSettings() {
 export default function AdminSettingsPage() {
   return (
     <AdminGate>
-      <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
+      <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
         <ClubSettings />
       </div>
     </AdminGate>

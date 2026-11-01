@@ -46,4 +46,14 @@ export interface Rumor {
     url: string;
     publishedAt: string;
   };
+  /** 이 선수를 즐겨찾기한 사용자 수 ("즐겨찾기순" 정렬용). */
+  favoriteCount: number;
+  /** 조회수 ("조회수순" 정렬용). */
+  viewCount: number;
+  /** 관련 기사 중 가장 최근 "등록"된 시각(DB insert 시각, published_at과는 다름).
+   * "최근 등록" 하이라이트 배지 표시용. */
+  latestCreatedAt: string;
+  /** latestCreatedAt이 24시간 이내인지. 데이터를 가져올 때(서버) 미리 계산해둔다 —
+   * 컴포넌트 렌더링 중에 Date.now()를 직접 부르면 순수하지 않은 렌더가 되기 때문. */
+  isRecentlyAdded: boolean;
 }

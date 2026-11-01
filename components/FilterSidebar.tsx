@@ -30,8 +30,8 @@ function FilterGroup({
           onClick={() => onSelect(null)}
           className={`rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
             selected === null
-              ? "bg-zinc-900 text-white"
-              : "text-zinc-600 hover:bg-zinc-100"
+              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+              : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
           }`}
         >
           전체
@@ -44,8 +44,8 @@ function FilterGroup({
             onClick={() => onSelect(option.key)}
             className={`rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
               selected === option.key
-                ? "bg-zinc-900 text-white"
-                : "text-zinc-600 hover:bg-zinc-100"
+                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
             }`}
           >
             {option.label}
@@ -71,7 +71,7 @@ interface FilterSidebarProps {
 // 이적설만 화면에 남는다. "최신순"은 항상 적용되는 기본 정렬이라 여기엔 없다.
 export default function FilterSidebar({ players, journalists, value, onChange }: FilterSidebarProps) {
   return (
-    <aside className="flex w-52 shrink-0 flex-col gap-6 border-r border-zinc-200 bg-white px-3 py-6">
+    <aside className="flex w-52 shrink-0 flex-col gap-6 border-r border-zinc-200 bg-white px-3 py-6 dark:border-zinc-800 dark:bg-zinc-900">
       <FilterGroup
         title="팀별"
         options={CORE_TEAMS.map((team) => ({ key: team.name, label: team.name }))}

@@ -50,3 +50,27 @@ export function filterRumors(rumors: Rumor[], filter: RumorFilterState): Rumor[]
 export function sortByLatest(rumors: Rumor[]): Rumor[] {
   return [...rumors].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
+
+export type SortOption = "latest" | "favorites" | "views";
+
+export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "latest", label: "최신순" },
+  { value: "favorites", label: "즐겨찾기순" },
+  { value: "views", label: "조회수순" },
+];
+
+export function sortRumors(rumors: Rumor[], sort: SortOption): Rumor[] {
+  switch (sort) {
+    case "favorites":
+      return [...rumors].sort(
+        (a, b) => b.favoriteCount - a.favoriteCount || b.updatedAt.localeCompare(a.updatedAt),
+      );
+    case "views":
+      return [...rumors].sort(
+        (a, b) => b.viewCount - a.viewCount || b.updatedAt.localeCompare(a.updatedAt),
+      );
+    case "latest":
+    default:
+      return sortByLatest(rumors);
+  }
+}

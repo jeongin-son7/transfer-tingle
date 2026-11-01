@@ -181,6 +181,44 @@ supabase/
 > 그대로 두고, `clubs`만 "쓰기는 `profiles.is_admin = true`인 사용자만"으로
 > 바꿨다.
 
+> **부가 기능 일괄 추가 (8차시 이후).** 수업 과제 요구사항인 "부가 기능
+> 3개 이상"을 충족하기 위해 한 번에 여러 기능을 추가했다.
+>
+> - **기자 신뢰도 랭킹** (`/journalists`) — 기자별 평균 개별 신뢰 점수·기사
+>   수 집계. 새 테이블 없이 기존 articles/journalists만으로 계산.
+> - **마이페이지** (`/mypage`) — 내가 등록한 기사만 모아보고 수정(링크·
+>   확실성·요약·날짜)·삭제 가능. 이를 위해 `articles.created_by`(작성자
+>   uuid)와 `articles.created_at`(실제 등록 시각, published_at과는 다름)을
+>   새로 추가하고, `articles` RLS를 "등록은 누구나, 수정/삭제는 본인 글이거나
+>   관리자만"으로 나눴다(`insert_authenticated` / `update_own_or_admin` /
+>   `delete_own_or_admin` 정책).
+> - **즐겨찾기** — `favorites(user_id, player_name)` 테이블. 하트 버튼으로
+>   토글, 전체 집계가 공개라 "즐겨찾기순" 정렬에도 쓴다.
+> - **조회수** — `rumor_views(player_name, view_count)` 테이블 + 보안
+>   definer 함수 `increment_rumor_view()`. 테이블 자체엔 쓰기 정책을 안 둬서
+>   REST API로 숫자를 직접 조작 못 하게 막고, 오직 이 함수를 통해서만
+>   +1 할 수 있다. 상세 페이지 방문마다 호출.
+> - **정렬** — 메인 화면에 최신순/즐겨찾기순/조회수순 토글 추가
+>   (`lib/filters.ts`의 `sortRumors`).
+> - **댓글** — `comments(player_name, user_id, email, body)` 테이블. 상세
+>   페이지 하단에 목록 + 작성 폼. 로그인한 사용자만 작성, 본인 글이거나
+>   관리자만 삭제 가능.
+> - **기사 신뢰도 투표(동의/반대)** — `article_votes(article_id, user_id, vote)`
+>   테이블. 기자·매체가 매긴 점수와는 별개로 실제 방문자 의견을 모으는
+>   기능. 유저당 기사당 투표 1개(의견 바꾸면 upsert).
+> - **공유 기능** — 상세 페이지에 `generateMetadata`로 OG 메타태그(카카오톡/
+>   트위터 공유 시 미리보기)를 달고, "공유하기" 버튼은 Web Share API가
+>   있으면 그걸, 없으면 링크 복사로 대체.
+> - **최근 등록 하이라이트** — 등록된 지 24시간 안이면 카드에 "NEW" 배지.
+>   `published_at`(사용자 입력 날짜)이 아니라 실제 DB `created_at` 기준.
+> - **다크 모드** — Tailwind v4 `@custom-variant dark`로 클래스 기반 전환을
+>   추가하고, 헤더의 토글 버튼이 `<html>`에 `dark` 클래스를 붙였다 떼었다
+>   한다. 선택은 `localStorage`에 저장, 없으면 시스템 설정을 따른다.
+>
+> `fetchLiveData()`는 이제 `clubs`/`favorites`/`rumor_views`까지 한 번에
+> 읽어오고, `React.cache()`로 감싸서 같은 요청 안에서 중복 조회(상세
+> 페이지의 `generateMetadata` + 페이지 본문이 둘 다 부르는 경우)를 막는다.
+
 ## 3. 데이터 모델 (계획서 2번 항목 기준)
 
 3개 테이블. 3~5차시는 이 구조를 그대로 TypeScript 타입 + 더미 배열로 먼저 만들고,

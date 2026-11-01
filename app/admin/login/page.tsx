@@ -31,12 +31,12 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="flex min-h-full flex-1 items-center justify-center bg-zinc-50 px-6">
+    <div className="flex min-h-full flex-1 items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+        className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
       >
-        <h1 className="text-lg font-bold text-zinc-900">관리자 로그인</h1>
+        <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">관리자 로그인</h1>
 
         <label className="flex flex-col gap-1 text-sm text-zinc-600">
           이메일

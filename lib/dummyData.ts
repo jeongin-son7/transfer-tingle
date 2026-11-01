@@ -416,6 +416,12 @@ function buildRumors(): Rumor[] {
         url: latestArticle.url,
         publishedAt: latestArticle.publishedAt,
       },
+      // 더미 데이터는 실제 화면에서 더 이상 안 쓰여서(8차시 이후 Supabase로 전환)
+      // 즐겨찾기/조회수/등록시각 개념이 없다 — 타입만 맞추는 자리값.
+      favoriteCount: 0,
+      viewCount: 0,
+      latestCreatedAt: latestArticle.publishedAt,
+      isRecentlyAdded: false,
     };
   });
 }

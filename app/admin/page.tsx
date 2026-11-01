@@ -97,11 +97,16 @@ function ArticleForm() {
       return;
     }
 
+    if (!session) {
+      setResult({ type: "error", message: "로그인이 필요합니다." });
+      return;
+    }
+
     setSubmitting(true);
     setResult(null);
 
     try {
-      const { score } = await saveArticle(form, journalist);
+      const { score } = await saveArticle(form, journalist, session.user.id);
 
       setResult({
         type: "success",
@@ -120,7 +125,7 @@ function ArticleForm() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-6 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-zinc-900">기사 등록</h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">기사 등록</h1>
         {isAdmin && (
           <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
             클럽 설정 →
@@ -281,7 +286,7 @@ function ArticleForm() {
 export default function AdminPage() {
   return (
     <AuthGate>
-      <div className="flex min-h-full flex-1 flex-col bg-zinc-50">
+      <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
         <ArticleForm />
       </div>
     </AuthGate>

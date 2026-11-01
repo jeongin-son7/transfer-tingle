@@ -16,7 +16,7 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder="선수명 또는 팀명을 검색하세요"
-        className="flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-600"
+        className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
       />
       <button
         type="button"
