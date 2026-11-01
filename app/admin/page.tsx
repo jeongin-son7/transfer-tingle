@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { KNOWN_TEAMS } from "@/lib/dummyData";
 import PlayerSearchSelect, { type PlayerOption } from "@/components/PlayerSearchSelect";
+import TeamSearchInput from "@/components/TeamSearchInput";
 import AuthGate from "@/components/AuthGate";
 import { useAdminSession, useIsAdmin } from "@/lib/auth";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -121,6 +122,11 @@ function ArticleForm() {
       return;
     }
 
+    if (!form.fromTeam.trim() || !form.toTeam.trim()) {
+      setResult({ type: "error", message: "이적 전/후 팀을 모두 입력해주세요." });
+      return;
+    }
+
     const journalist = journalists.find((j) => j.id === form.journalistId);
     if (!journalist) {
       setResult({ type: "error", message: "기자를 선택해주세요." });
@@ -229,31 +235,26 @@ function ArticleForm() {
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-sm text-zinc-600">
             이적 전 팀
-            <input
-              required
-              list="team-suggestions"
+            <TeamSearchInput
+              teams={teamSuggestions}
               value={form.fromTeam}
-              onChange={(e) => setForm((p) => ({ ...p, fromTeam: e.target.value }))}
-              className={inputClass}
+              onChange={(fromTeam) => setForm((p) => ({ ...p, fromTeam }))}
+              placeholder="팀 이름 검색 또는 직접 입력"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-zinc-600">
             이적 후 팀
-            <input
-              required
-              list="team-suggestions"
+            <TeamSearchInput
+              teams={teamSuggestions}
               value={form.toTeam}
-              onChange={(e) => setForm((p) => ({ ...p, toTeam: e.target.value }))}
-              className={inputClass}
+              onChange={(toTeam) => setForm((p) => ({ ...p, toTeam }))}
+              placeholder="팀 이름 검색 또는 직접 입력"
             />
           </label>
         </div>
-        <datalist id="team-suggestions">
-          {teamSuggestions.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-
+        <p className="-mt-2 text-xs text-zinc-400">
+          목록에 없는 팀이면 그냥 이름을 직접 입력하세요 — 저장할 때 자동으로 등록됩니다.
+        </p>
         <label className="flex flex-col gap-1 text-sm text-zinc-600">
           확실성
           <select
