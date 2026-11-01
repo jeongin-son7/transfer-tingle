@@ -33,6 +33,21 @@ export interface JournalistRow {
   base_tier: number;
 }
 
+/** 기사에 등장한 팀 이름이 clubs 테이블에 아직 없으면 로고 없는 기본값으로
+ * 하나 만들어둔다 — 그래야 나중에 관리자가 /admin/settings에서 그 팀을 찾아
+ * 로고를 채울 수 있다(없으면 아예 목록에 안 뜸). 이미 있는 팀이면
+ * ON CONFLICT DO NOTHING이라 아무 일도 안 한다. clubs 쓰기는 "추가(insert)는
+ * 로그인한 누구나, 수정/삭제는 관리자만" 정책이라 이 호출 자체는 누가 불러도
+ * 되고, 실패해도(이미 있어서 등) 기사 저장에는 영향 없으니 결과를 신경 쓰지
+ * 않는다. */
+async function ensureClubExists(name: string, league: string) {
+  const supabase = getSupabaseClient();
+  await supabase.from("clubs").upsert(
+    { name, short_code: name.slice(0, 3).toUpperCase(), league, logo_url: null },
+    { onConflict: "name", ignoreDuplicates: true },
+  );
+}
+
 export async function saveArticle(input: ArticleFormInput, journalist: JournalistRow, userId: string) {
   const supabase = getSupabaseClient();
 
@@ -48,6 +63,11 @@ export async function saveArticle(input: ArticleFormInput, journalist: Journalis
     { league, certainty: input.certainty },
     journalistForScore,
   );
+
+  await Promise.all([
+    ensureClubExists(input.fromTeam, league),
+    ensureClubExists(input.toTeam, getTeamLeague(input.toTeam)),
+  ]);
 
   const { data, error } = await supabase
     .from("articles")

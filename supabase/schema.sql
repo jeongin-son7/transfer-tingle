@@ -255,12 +255,23 @@ create policy "write_authenticated" on players for all
 
 drop policy if exists "select_all" on clubs;
 create policy "select_all" on clubs for select using (true);
--- clubs만 예외: 로그인한 누구나가 아니라 관리자만 쓰기 가능.
+-- clubs는 두 단계로 나눈다: 새 클럽 "추가"(insert)는 로그인한 사용자 누구나
+-- 가능 — 기사 등록 폼에서 처음 보는 팀 이름을 입력하면 자동으로 clubs에
+-- 기본값(로고 없음)으로 등록해주기 위해서다(lib/articleMutations.ts의
+-- ensureClubExists 참고). 반면 이미 있는 클럽의 이름·약자·로고를 "수정"하거나
+-- "삭제"하는 건 관리자만 — 아무나 기존 club의 브랜딩을 망가뜨리지 못하게.
 drop policy if exists "write_authenticated" on clubs;
 drop policy if exists "write_admin_only" on clubs;
-create policy "write_admin_only" on clubs for all
+drop policy if exists "insert_authenticated" on clubs;
+create policy "insert_authenticated" on clubs for insert
+  with check (auth.role() = 'authenticated');
+drop policy if exists "update_admin_only" on clubs;
+create policy "update_admin_only" on clubs for update
   using (exists (select 1 from profiles where id = auth.uid() and is_admin = true))
   with check (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+drop policy if exists "delete_admin_only" on clubs;
+create policy "delete_admin_only" on clubs for delete
+  using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
 
 drop policy if exists "select_all" on profiles;
 create policy "select_all" on profiles for select using (true);

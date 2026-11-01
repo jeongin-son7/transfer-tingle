@@ -6,6 +6,7 @@ import { KNOWN_TEAMS } from "@/lib/dummyData";
 import PlayerSearchSelect, { type PlayerOption } from "@/components/PlayerSearchSelect";
 import AuthGate from "@/components/AuthGate";
 import { useAdminSession, useIsAdmin } from "@/lib/auth";
+import { getSupabaseClient } from "@/lib/supabase";
 import { saveArticle, type JournalistRow } from "@/lib/articleMutations";
 import type { Certainty } from "@/lib/types";
 
@@ -82,6 +83,35 @@ function ArticleForm() {
       })
       .catch(() => {});
   }, []);
+
+  // 검색해도 없는 선수를 등록 폼에서 바로 새로 만든다. players 쓰기는
+  // "로그인한 사용자 누구나" 정책(schema.sql)이라 관리자가 아니어도 된다.
+  const handleCreatePlayer = async ({
+    name,
+    currentTeam,
+  }: {
+    name: string;
+    currentTeam: string;
+  }): Promise<PlayerOption> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("players")
+      .insert({ name, current_team: currentTeam })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const created: PlayerOption = {
+      id: data.id as string,
+      name: data.name as string,
+      currentTeam: data.current_team as string,
+    };
+    setPlayers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    return created;
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -182,6 +212,7 @@ function ArticleForm() {
               setSelectedPlayer(player);
               setForm((p) => ({ ...p, playerName: player.name, fromTeam: player.currentTeam }));
             }}
+            onCreateNew={handleCreatePlayer}
           />
           {playersError && (
             <span className="text-xs text-red-600">
