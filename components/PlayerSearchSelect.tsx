@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FocusEvent } from "react";
 
 export interface PlayerOption {
   id: string;
@@ -59,8 +59,19 @@ export default function PlayerSearchSelect({
     }
   };
 
+  // 검색창 자체가 아니라 바깥쪽 컨테이너에서 포커스 이동을 감지한다. 포커스가
+  // 여전히 이 컴포넌트 안(검색창 → 목록 버튼 → 새 선수 등록용 팀 입력창/버튼)에
+  // 머물러 있으면 드롭다운을 닫지 않는다 — 예전엔 검색창 onBlur에 preventDefault
+  // 트릭을 썼는데, 그걸 드롭다운 전체에 걸어두는 바람에 "현재 소속팀" 입력창이
+  // 아예 포커스를 못 받아서 타이핑도, 추가 버튼 클릭도 안 되는 버그가 있었다.
+  const handleContainerBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setOpen(false);
+    }
+  };
+
   return (
-    <div className="relative">
+    <div className="relative" onBlur={handleContainerBlur}>
       <input
         type="text"
         value={open ? query : (selected?.name ?? "")}
@@ -73,19 +84,12 @@ export default function PlayerSearchSelect({
           setQuery("");
           setOpen(true);
         }}
-        onBlur={() => {
-          // 목록 항목 클릭(onMouseDown)이 blur보다 먼저 처리되도록 약간 지연
-          setTimeout(() => setOpen(false), 150);
-        }}
         placeholder="선수 이름 검색"
         className={inputClass}
       />
 
       {open && (
-        <div
-          onMouseDown={(e) => e.preventDefault()}
-          className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-zinc-300 bg-white text-sm shadow-lg"
-        >
+        <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-zinc-300 bg-white text-sm shadow-lg">
           <ul className="max-h-48 overflow-auto">
             {filtered.map((player) => (
               <li key={player.id}>
