@@ -33,6 +33,16 @@ function ArticleForm() {
   const [teamSuggestions, setTeamSuggestions] = useState<string[]>(KNOWN_TEAMS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [playersError, setPlayersError] = useState<string | null>(null);
+  // 새 기자 추가용 미니 폼 상태. 담당 리그/초기 티어는 선택 입력이고, 초기
+  // 티어를 비우면 낮은 기본값(LOW_DEFAULT_TIER)으로 들어간다 — 검증 안 된
+  // 새 기자를 함부로 높은 신뢰도로 시작시키지 않기 위해서다.
+  const [showNewJournalist, setShowNewJournalist] = useState(false);
+  const [newJournalistName, setNewJournalistName] = useState("");
+  const [newJournalistOutlet, setNewJournalistOutlet] = useState("");
+  const [newJournalistLeague, setNewJournalistLeague] = useState("");
+  const [newJournalistTier, setNewJournalistTier] = useState("");
+  const [creatingJournalist, setCreatingJournalist] = useState(false);
+  const [newJournalistError, setNewJournalistError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
@@ -112,6 +122,63 @@ function ArticleForm() {
     };
     setPlayers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     return created;
+  };
+
+  const LOW_DEFAULT_TIER = 30;
+
+  // 검색해도 없는 기자를 등록 폼에서 바로 새로 만든다. journalists 쓰기도
+  // "로그인한 사용자 누구나" 정책이라 관리자가 아니어도 된다. 이름 중복은
+  // journalists_name_key 유니크 인덱스(supabase/seed.sql)가 DB 단에서 막아주고,
+  // 여기선 그 전에 한 번 더 걸러서 더 친절한 에러 메시지를 보여준다.
+  const handleCreateJournalist = async () => {
+    const name = newJournalistName.trim();
+    if (!name) return;
+
+    if (journalists.some((j) => j.name === name)) {
+      setNewJournalistError("이미 같은 이름의 기자가 있습니다.");
+      return;
+    }
+
+    setCreatingJournalist(true);
+    setNewJournalistError(null);
+
+    const outlet = newJournalistOutlet.trim() || "미확인 매체";
+    const league = newJournalistLeague.trim();
+    const tierInput = newJournalistTier.trim();
+    const tier = tierInput ? Number(tierInput) : LOW_DEFAULT_TIER;
+    const leagueTiers = league && tierInput ? [{ league, score: tier }] : [];
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("journalists")
+      .insert({ name, outlet, league_tiers: leagueTiers, base_tier: tier })
+      .select()
+      .single();
+
+    setCreatingJournalist(false);
+
+    if (error) {
+      // 23505 = unique_violation (journalists_name_key)
+      setNewJournalistError(
+        error.code === "23505" ? "이미 같은 이름의 기자가 있습니다." : error.message,
+      );
+      return;
+    }
+
+    const created: JournalistRow = {
+      id: data.id as string,
+      name: data.name as string,
+      outlet: data.outlet as string,
+      league_tiers: data.league_tiers as { league: string; score: number }[] | null,
+      base_tier: data.base_tier as number,
+    };
+    setJournalists((prev) => [...prev, created]);
+    setForm((p) => ({ ...p, journalistId: created.id }));
+    setNewJournalistName("");
+    setNewJournalistOutlet("");
+    setNewJournalistLeague("");
+    setNewJournalistTier("");
+    setShowNewJournalist(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -207,6 +274,61 @@ function ArticleForm() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setShowNewJournalist((v) => !v)}
+            className="self-start text-xs text-emerald-600 hover:underline"
+          >
+            {showNewJournalist ? "취소" : "+ 목록에 없는 기자 추가"}
+          </button>
+
+          {showNewJournalist && (
+            <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800">
+              <input
+                type="text"
+                value={newJournalistName}
+                onChange={(e) => setNewJournalistName(e.target.value)}
+                placeholder="이름 (필수)"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+              />
+              <input
+                type="text"
+                value={newJournalistOutlet}
+                onChange={(e) => setNewJournalistOutlet(e.target.value)}
+                placeholder="소속 매체 (선택)"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={newJournalistLeague}
+                  onChange={(e) => setNewJournalistLeague(e.target.value)}
+                  placeholder="담당 리그 (선택)"
+                  className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={newJournalistTier}
+                  onChange={(e) => setNewJournalistTier(e.target.value)}
+                  placeholder={`초기 티어 (비우면 ${LOW_DEFAULT_TIER})`}
+                  className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateJournalist}
+                disabled={creatingJournalist || !newJournalistName.trim()}
+                className="self-start rounded bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+              >
+                {creatingJournalist ? "추가 중..." : "기자 추가"}
+              </button>
+              {newJournalistError && (
+                <p className="text-xs text-red-600">{newJournalistError}</p>
+              )}
+            </div>
+          )}
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-zinc-600">

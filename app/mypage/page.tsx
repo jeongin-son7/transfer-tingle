@@ -24,7 +24,17 @@ interface MyArticleRow {
   summary: string | null;
   published_at: string;
   score: number | null;
+  /** supabase/migration_article_approval.sql을 아직 실행 안 했으면 이 컬럼
+   * 자체가 없다 — select("*")를 쓰기 때문에 없어도 에러는 안 나고 그냥
+   * undefined로 온다. 없으면 "승인"으로 취급(마이그레이션 전엔 전부 공개였음). */
+  approval_status?: "대기" | "승인" | "반려";
 }
+
+const APPROVAL_BADGE_STYLE: Record<string, string> = {
+  대기: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  승인: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  반려: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+};
 
 const CERTAINTY_OPTIONS: Certainty[] = ["확정", "진전", "관심"];
 const fieldClass = "rounded border border-zinc-300 px-2 py-1";
@@ -87,9 +97,18 @@ function ArticleRowEditor({
     <li className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-            {article.player_name} ({article.from_team} → {article.to_team})
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              {article.player_name} ({article.from_team} → {article.to_team})
+            </p>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                APPROVAL_BADGE_STYLE[article.approval_status ?? "승인"]
+              }`}
+            >
+              {article.approval_status ?? "승인"}
+            </span>
+          </div>
           <p className="text-xs text-zinc-400">
             {journalist ? `${journalist.name} · ${journalist.outlet}` : "기자 정보 없음"}
           </p>
@@ -98,6 +117,14 @@ function ArticleRowEditor({
           {article.score ?? 0}점
         </span>
       </div>
+      {article.approval_status === "대기" && (
+        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          관리자 승인 대기 중 — 승인되기 전까지는 메인·상세 화면에 공개되지 않습니다.
+        </p>
+      )}
+      {article.approval_status === "반려" && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-400">반려된 기사입니다.</p>
+      )}
 
       {editing ? (
         <div className="mt-3 flex flex-col gap-2 text-sm">
@@ -198,9 +225,7 @@ function MyArticles() {
     Promise.all([
       supabase
         .from("articles")
-        .select(
-          "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score",
-        )
+        .select("*")
         .eq("created_by", session.user.id)
         .order("published_at", { ascending: false }),
       fetch("/api/journalists").then((res) => res.json()),

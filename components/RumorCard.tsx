@@ -61,6 +61,9 @@ export default function RumorCard({
         </div>
 
         <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
+          <span>
+            기사 {rumor.articleIds.length}건 · 매체 {rumor.outletCount}곳
+          </span>
           <span>♥ {rumor.favoriteCount}</span>
           <span>조회 {rumor.viewCount}</span>
         </div>

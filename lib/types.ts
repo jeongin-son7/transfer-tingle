@@ -39,6 +39,9 @@ export interface Rumor {
   articleIds: string[];
   /** 이 이적설을 다룬 기자 id 목록(중복 제거). "기자별" 필터에서 포함 여부를 검사할 때 사용. */
   journalistIds: string[];
+  /** 이 이적설을 다룬 서로 다른 매체(outlet) 수. "여러 매체가 같은 이적설을
+   * 다뤘다"는 교차 확인 신호를 카드에 요약해서 보여줄 때 쓴다. */
+  outletCount: number;
   /** 임시 종합 신뢰 점수. lib/trustScore.ts의 1단계(단순 평균) 계산 결과. */
   score: number;
   /** 관련 기사 중 가장 최근 등록 날짜 (= latestArticle.publishedAt). */

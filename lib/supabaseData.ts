@@ -237,6 +237,9 @@ function buildRumors(
       toTeam: latestArticle.toTeam,
       articleIds: playerArticles.map((a) => a.id),
       journalistIds: [...new Set(playerArticles.map((a) => a.journalistId))],
+      outletCount: new Set(
+        playerArticles.map((a) => journalistById.get(a.journalistId)?.outlet ?? a.journalistId),
+      ).size,
       // 기자 신뢰도 보정이 반영된 점수로 평균을 낸다 — 그래서 다른 이적설의
       // 결과가 새로 확정될 때마다 이 선수의 종합 점수도 같이 바뀔 수 있다.
       score: calculateAggregateScore(playerArticles.map((a) => a.calibratedScore)),
@@ -257,6 +260,19 @@ function buildRumors(
   });
 }
 
+const ARTICLE_COLUMNS =
+  "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score, created_by, created_at";
+
+/** 공개 화면(메인/상세/기자 프로필)에는 승인된 기사만 보인다. approval_status
+ * 컬럼은 supabase/migration_article_approval.sql을 아직 실행하지 않았으면
+ * 없을 수 있다 — 그 경우 필터 없이 다시 조회해서(기존처럼 전체 공개) 사이트가
+ * 안 깨지게 한다. 마이그레이션을 실행하면 이 fallback은 더 이상 안 쓰인다. */
+async function fetchApprovedArticles(supabase: ReturnType<typeof getSupabaseClient>) {
+  const filtered = await supabase.from("articles").select(ARTICLE_COLUMNS).eq("approval_status", "승인");
+  if (!filtered.error) return filtered;
+  return supabase.from("articles").select(ARTICLE_COLUMNS);
+}
+
 // React.cache로 감싸서 같은 요청(request) 안에서는 한 번만 실제로 조회한다
 // — generateMetadata()와 페이지 컴포넌트가 둘 다 fetchLiveData()를 부르면
 // 중복 조회가 생기는데, 이걸 막아준다.
@@ -266,11 +282,7 @@ export const fetchLiveData = cache(async (): Promise<LiveData> => {
   const [journalistsRes, articlesRes, clubsRes, favoritesRes, viewsRes, outcomesRes] =
     await Promise.all([
       supabase.from("journalists").select("id, name, outlet, league_tiers, base_tier"),
-      supabase
-        .from("articles")
-        .select(
-          "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score, created_by, created_at",
-        ),
+      fetchApprovedArticles(supabase),
       supabase.from("clubs").select("id, name, short_code, league, logo_url"),
       supabase.from("favorites").select("player_name"),
       supabase.from("rumor_views").select("player_name, view_count"),
