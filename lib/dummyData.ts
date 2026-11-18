@@ -428,6 +428,8 @@ function buildRumors(): Rumor[] {
       status: "진행중",
       actualTeam: null,
       resolvedAt: null,
+      position: null,
+      trait: null,
     };
   });
 }

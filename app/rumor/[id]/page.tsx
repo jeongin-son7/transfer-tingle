@@ -6,10 +6,11 @@ import RumorFavoriteToggle from "@/components/RumorFavoriteToggle";
 import ShareButton from "@/components/ShareButton";
 import CommentsSection from "@/components/CommentsSection";
 import ArticleVotes from "@/components/ArticleVotes";
+import Tooltip from "@/components/Tooltip";
 import { buildClubMap, fetchLiveData } from "@/lib/supabaseData";
 import { getSupabaseClient } from "@/lib/supabase";
 import { formatRelativeDate } from "@/lib/relativeDate";
-import { getTierScore, CERTAINTY_WEIGHT } from "@/lib/trustScore";
+import { getTierScore, CERTAINTY_WEIGHT, CERTAINTY_DESCRIPTION, SCORE_EXPLANATION } from "@/lib/trustScore";
 
 // 메인 화면과 마찬가지로 항상 최신 DB 데이터를 봐야 하므로 빌드 시점에 미리
 // 생성해두지 않는다 (예전엔 더미 데이터라 generateStaticParams로 미리 만들어
@@ -131,9 +132,23 @@ export default async function RumorDetailPage({
             <span>{rumor.toTeam}</span>
           </div>
 
+          {/* 비전문가도 바로 감이 오도록 포지션 + 한 줄 특징. 확실히 아는
+              선수만 players.position/trait가 채워져 있고, 없으면 안 보인다. */}
+          {(rumor.position || rumor.trait) && (
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              {rumor.position && (
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">{rumor.position}</span>
+              )}
+              {rumor.position && rumor.trait && " · "}
+              {rumor.trait}
+            </p>
+          )}
+
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <p className="inline-flex flex-wrap items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-              <span>종합 신뢰 점수 {rumor.score}점</span>
+              <Tooltip content={SCORE_EXPLANATION}>
+                <span>종합 신뢰 점수 {rumor.score}점</span>
+              </Tooltip>
               <span className="font-normal text-emerald-600/60 dark:text-emerald-400/60">→</span>
               <span>
                 {rumor.status === "진행중"
@@ -195,16 +210,20 @@ export default async function RumorDetailPage({
                         </span>
                       )}
                       {/* 기자 신뢰도 보정이 반영된 최종 점수 (lib/trustScore.ts) */}
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                        {article.calibratedScore}점
-                      </span>
+                      <Tooltip content={SCORE_EXPLANATION}>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                          {article.calibratedScore}점
+                        </span>
+                      </Tooltip>
                     </div>
                   </div>
 
                   <div className="mt-2 flex items-center gap-2 text-xs">
-                    <span className="rounded-full border border-zinc-300 px-2 py-0.5 font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
-                      {article.certainty}
-                    </span>
+                    <Tooltip content={CERTAINTY_DESCRIPTION[article.certainty]}>
+                      <span className="rounded-full border border-zinc-300 px-2 py-0.5 font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+                        {article.certainty}
+                      </span>
+                    </Tooltip>
                     <span className="text-zinc-400">
                       {formatRelativeDate(article.publishedAt)} · {article.publishedAt}
                     </span>

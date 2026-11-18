@@ -3,7 +3,9 @@ import type { Rumor, RumorStatus } from "@/lib/types";
 import type { LiveClub } from "@/lib/supabaseData";
 import TeamBadge from "./TeamBadge";
 import FavoriteButton from "./FavoriteButton";
+import Tooltip from "./Tooltip";
 import { formatRelativeDate } from "@/lib/relativeDate";
+import { SCORE_EXPLANATION } from "@/lib/trustScore";
 
 const STATUS_BADGE_STYLE: Record<RumorStatus, string> = {
   진행중: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
@@ -47,9 +49,11 @@ export default function RumorCard({
             )}
           </div>
           {/* 임시 종합 신뢰 점수 (lib/trustScore.ts 1단계: 단순 평균) */}
-          <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-            {rumor.score}점
-          </span>
+          <Tooltip content={SCORE_EXPLANATION}>
+            <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              {rumor.score}점
+            </span>
+          </Tooltip>
         </div>
 
         <div className="mt-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
@@ -59,6 +63,18 @@ export default function RumorCard({
           <TeamBadge team={rumor.toTeam} club={clubs.get(rumor.toTeam)} />
           <span>{rumor.toTeam}</span>
         </div>
+
+        {/* 비전문가도 바로 감이 오도록 포지션 + 한 줄 특징. 확실히 아는 선수만
+            players.position/trait가 채워져 있고, 없으면 그냥 안 보인다. */}
+        {(rumor.position || rumor.trait) && (
+          <p className="mt-1 text-xs text-zinc-400">
+            {rumor.position && (
+              <span className="font-medium text-zinc-500 dark:text-zinc-300">{rumor.position}</span>
+            )}
+            {rumor.position && rumor.trait && " · "}
+            {rumor.trait}
+          </p>
+        )}
 
         <div className="mt-2 flex items-center gap-3 text-xs text-zinc-400">
           <span>

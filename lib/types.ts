@@ -68,4 +68,9 @@ export interface Rumor {
   actualTeam: string | null;
   /** 결과가 확정된 날짜(구단 공식 발표일 등). 진행 중이면 null. */
   resolvedAt: string | null;
+  /** 선수 포지션(한국어 표기). players 테이블에 해당 선수 행이 없거나
+   * 포지션을 확실히 모르는 선수는 null — 추측해서 채우지 않는다. */
+  position: string | null;
+  /** 선수 한 줄 특징. position과 마찬가지로 확실하지 않으면 null. */
+  trait: string | null;
 }

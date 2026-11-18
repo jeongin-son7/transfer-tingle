@@ -150,6 +150,13 @@ interface RumorOutcome {
   resolvedAt: string | null;
 }
 
+/** 선수 한 명의 포지션/한 줄 특징. 둘 다 확실히 아는 값만 채워져 있고(그 외엔
+ * null), players.position/players.trait에서 그대로 옮겨온다. */
+interface PlayerProfile {
+  position: string | null;
+  trait: string | null;
+}
+
 /** 기자 한 명의 신뢰도 보정 결과 + 화면에 보여줄 이름/매체. 랭킹 페이지와
  * 기자 프로필 페이지(/journalist/[id])가 같이 쓴다. */
 export interface JournalistStat extends JournalistCalibration {
@@ -213,6 +220,7 @@ function buildRumors(
   favoriteCounts: Map<string, number>,
   viewCounts: Map<string, number>,
   outcomes: Map<string, RumorOutcome>,
+  playerProfiles: Map<string, PlayerProfile>,
 ): Rumor[] {
   const journalistById = new Map(journalists.map((j) => [j.id, j]));
   const playerOrder = [...new Set(articles.map((a) => a.playerName))];
@@ -256,6 +264,8 @@ function buildRumors(
       status: outcomes.get(playerName)?.status ?? "진행중",
       actualTeam: outcomes.get(playerName)?.actualTeam ?? null,
       resolvedAt: outcomes.get(playerName)?.resolvedAt ?? null,
+      position: playerProfiles.get(playerName)?.position ?? null,
+      trait: playerProfiles.get(playerName)?.trait ?? null,
     };
   });
 }
@@ -273,13 +283,30 @@ async function fetchApprovedArticles(supabase: ReturnType<typeof getSupabaseClie
   return supabase.from("articles").select(ARTICLE_COLUMNS);
 }
 
+/** 선수명 → 포지션/한 줄 특징. supabase/migration_player_profile.sql을 아직
+ * 실행하지 않았으면 position/trait 컬럼 자체가 없을 수 있다 — 그 경우 에러를
+ * 무시하고 빈 맵을 돌려준다(화면에 그냥 안 보일 뿐, 사이트가 깨지지 않음). */
+async function fetchPlayerProfiles(
+  supabase: ReturnType<typeof getSupabaseClient>,
+): Promise<Map<string, PlayerProfile>> {
+  const { data, error } = await supabase.from("players").select("name, position, trait");
+  if (error) return new Map();
+
+  return new Map(
+    (data ?? []).map((row) => [
+      row.name as string,
+      { position: row.position as string | null, trait: row.trait as string | null },
+    ]),
+  );
+}
+
 // React.cache로 감싸서 같은 요청(request) 안에서는 한 번만 실제로 조회한다
 // — generateMetadata()와 페이지 컴포넌트가 둘 다 fetchLiveData()를 부르면
 // 중복 조회가 생기는데, 이걸 막아준다.
 export const fetchLiveData = cache(async (): Promise<LiveData> => {
   const supabase = getSupabaseClient();
 
-  const [journalistsRes, articlesRes, clubsRes, favoritesRes, viewsRes, outcomesRes] =
+  const [journalistsRes, articlesRes, clubsRes, favoritesRes, viewsRes, outcomesRes, playerProfiles] =
     await Promise.all([
       supabase.from("journalists").select("id, name, outlet, league_tiers, base_tier"),
       fetchApprovedArticles(supabase),
@@ -291,6 +318,7 @@ export const fetchLiveData = cache(async (): Promise<LiveData> => {
       // 경우 이 조회만 에러가 나는데, 결과 표시는 부가 기능이라 사이트 전체가
       // 안 뜨면 안 되므로 throw하지 않고 빈 결과로 넘어간다(전부 "진행중" 취급).
       supabase.from("rumors").select("player_name, status, actual_team, resolved_at"),
+      fetchPlayerProfiles(supabase),
     ]);
 
   if (journalistsRes.error) throw new Error(journalistsRes.error.message);
@@ -323,7 +351,7 @@ export const fetchLiveData = cache(async (): Promise<LiveData> => {
   );
 
   const { articles, journalistStats } = enrichArticles(rawArticles, journalists, outcomes);
-  const rumors = buildRumors(articles, journalists, favoriteCounts, viewCounts, outcomes);
+  const rumors = buildRumors(articles, journalists, favoriteCounts, viewCounts, outcomes, playerProfiles);
 
   return { journalists, articles, rumors, clubs, journalistStats };
 });
