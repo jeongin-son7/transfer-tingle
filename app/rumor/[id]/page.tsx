@@ -7,7 +7,7 @@ import ShareButton from "@/components/ShareButton";
 import CommentsSection from "@/components/CommentsSection";
 import ArticleVotes from "@/components/ArticleVotes";
 import Tooltip from "@/components/Tooltip";
-import { buildClubMap, fetchLiveData } from "@/lib/supabaseData";
+import { buildClubMap, fetchLiveData, fetchPlayerHistory } from "@/lib/supabaseData";
 import { getSupabaseClient } from "@/lib/supabase";
 import { formatRelativeDate } from "@/lib/relativeDate";
 import { getTierScore, CERTAINTY_WEIGHT, CERTAINTY_DESCRIPTION, SCORE_EXPLANATION } from "@/lib/trustScore";
@@ -96,6 +96,10 @@ export default async function RumorDetailPage({
     notFound();
   }
 
+  // 이적 이력은 부가 정보라, 못 가져와도(마이그레이션 전 등) 페이지 전체가
+  // 깨지면 안 된다 — 실패하면 그냥 빈 목록으로 "이력 없음" 문구를 보여준다.
+  const playerHistory = await fetchPlayerHistory(playerName).catch(() => []);
+
   // 조회수 증가. 실패해도(아직 increment_rumor_view 함수를 못 만들었거나 등)
   // 페이지 자체는 보여줘야 하니 조용히 무시한다.
   try {
@@ -168,6 +172,37 @@ export default async function RumorDetailPage({
             {rumor.journalistIds.length}명의 서로 다른 기자가 이 이적설을 보도했습니다 (교차
             확인 — 참고용 표시이며 점수 계산에는 아직 반영하지 않습니다).
           </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold tracking-wide text-zinc-400">이적 이력</h2>
+
+          {playerHistory.length === 0 ? (
+            <p className="text-sm text-zinc-400">등록된 이적 이력이 없습니다.</p>
+          ) : (
+            <ol className="flex flex-col gap-3 border-l border-zinc-200 pl-4 dark:border-zinc-700">
+              {playerHistory.map((entry, index) => (
+                <li key={`${entry.team}-${entry.startDate}`} className="relative">
+                  <span
+                    className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ${
+                      entry.endDate === null ? "bg-emerald-600" : "bg-zinc-300 dark:bg-zinc-600"
+                    }`}
+                  />
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    {entry.team}
+                    {entry.endDate === null && index === playerHistory.length - 1 && (
+                      <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        현재
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    {entry.startDate} ~ {entry.endDate ?? "현재"}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
         </section>
 
         <section className="flex flex-col gap-3">

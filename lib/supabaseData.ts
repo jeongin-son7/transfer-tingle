@@ -300,6 +300,34 @@ async function fetchPlayerProfiles(
   );
 }
 
+export interface PlayerHistoryEntry {
+  team: string;
+  startDate: string;
+  endDate: string | null;
+}
+
+/** 선수 한 명의 이적 이력 타임라인(player_history). 메인 데이터(fetchLiveData)와
+ * 달리 이적설 상세 페이지에서 선수 1명 단위로만 필요해서 별도 함수로 뗐다.
+ * supabase/migration_player_history.sql을 아직 실행하지 않았으면 테이블 자체가
+ * 없을 수 있는데, 그 경우 빈 배열을 돌려줘서 "이력 없음"으로 자연스럽게
+ * 보이게 한다(에러로 페이지 전체가 깨지지 않음). */
+export async function fetchPlayerHistory(playerName: string): Promise<PlayerHistoryEntry[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("player_history")
+    .select("team, start_date, end_date")
+    .eq("player_name", playerName)
+    .order("start_date", { ascending: true });
+
+  if (error) return [];
+
+  return (data ?? []).map((row) => ({
+    team: row.team as string,
+    startDate: row.start_date as string,
+    endDate: row.end_date as string | null,
+  }));
+}
+
 // React.cache로 감싸서 같은 요청(request) 안에서는 한 번만 실제로 조회한다
 // — generateMetadata()와 페이지 컴포넌트가 둘 다 fetchLiveData()를 부르면
 // 중복 조회가 생기는데, 이걸 막아준다.
