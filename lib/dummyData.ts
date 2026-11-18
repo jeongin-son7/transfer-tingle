@@ -409,6 +409,9 @@ function buildRumors(): Rumor[] {
       toTeam: latestArticle.toTeam,
       articleIds: playerArticles.map((article) => article.id),
       journalistIds: [...new Set(playerArticles.map((article) => article.journalistId))],
+      outletCount: new Set(
+        playerArticles.map((article) => findJournalist(article.journalistId).outlet),
+      ).size,
       score: calculateAggregateScore(articleScores),
       updatedAt: latestArticle.publishedAt,
       latestArticle: {
@@ -425,6 +428,8 @@ function buildRumors(): Rumor[] {
       status: "진행중",
       actualTeam: null,
       resolvedAt: null,
+      position: null,
+      trait: null,
     };
   });
 }

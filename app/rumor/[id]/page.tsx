@@ -3,13 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import TeamBadge from "@/components/TeamBadge";
 import RumorFavoriteToggle from "@/components/RumorFavoriteToggle";
+import InterestStarToggle from "@/components/InterestStarToggle";
 import ShareButton from "@/components/ShareButton";
 import CommentsSection from "@/components/CommentsSection";
 import ArticleVotes from "@/components/ArticleVotes";
-import { buildClubMap, fetchLiveData } from "@/lib/supabaseData";
+import Tooltip from "@/components/Tooltip";
+import { buildClubMap, fetchLiveData, fetchPlayerHistory } from "@/lib/supabaseData";
 import { getSupabaseClient } from "@/lib/supabase";
 import { formatRelativeDate } from "@/lib/relativeDate";
-import { getTierScore, CERTAINTY_WEIGHT } from "@/lib/trustScore";
+import { getTierScore, CERTAINTY_WEIGHT, CERTAINTY_DESCRIPTION, SCORE_EXPLANATION } from "@/lib/trustScore";
 
 // 메인 화면과 마찬가지로 항상 최신 DB 데이터를 봐야 하므로 빌드 시점에 미리
 // 생성해두지 않는다 (예전엔 더미 데이터라 generateStaticParams로 미리 만들어
@@ -95,6 +97,10 @@ export default async function RumorDetailPage({
     notFound();
   }
 
+  // 이적 이력은 부가 정보라, 못 가져와도(마이그레이션 전 등) 페이지 전체가
+  // 깨지면 안 된다 — 실패하면 그냥 빈 목록으로 "이력 없음" 문구를 보여준다.
+  const playerHistory = await fetchPlayerHistory(playerName).catch(() => []);
+
   // 조회수 증가. 실패해도(아직 increment_rumor_view 함수를 못 만들었거나 등)
   // 페이지 자체는 보여줘야 하니 조용히 무시한다.
   try {
@@ -121,7 +127,10 @@ export default async function RumorDetailPage({
         <section>
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{rumor.playerName}</h1>
-            <RumorFavoriteToggle playerName={rumor.playerName} />
+            <div className="flex items-center gap-1.5">
+              <InterestStarToggle playerName={rumor.playerName} />
+              <RumorFavoriteToggle playerName={rumor.playerName} />
+            </div>
           </div>
           <div className="mt-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
             <TeamBadge team={rumor.fromTeam} club={clubMap.get(rumor.fromTeam)} />
@@ -131,9 +140,23 @@ export default async function RumorDetailPage({
             <span>{rumor.toTeam}</span>
           </div>
 
+          {/* 비전문가도 바로 감이 오도록 포지션 + 한 줄 특징. 확실히 아는
+              선수만 players.position/trait가 채워져 있고, 없으면 안 보인다. */}
+          {(rumor.position || rumor.trait) && (
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              {rumor.position && (
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">{rumor.position}</span>
+              )}
+              {rumor.position && rumor.trait && " · "}
+              {rumor.trait}
+            </p>
+          )}
+
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <p className="inline-flex flex-wrap items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-              <span>종합 신뢰 점수 {rumor.score}점</span>
+              <Tooltip content={SCORE_EXPLANATION}>
+                <span>종합 신뢰 점수 {rumor.score}점</span>
+              </Tooltip>
               <span className="font-normal text-emerald-600/60 dark:text-emerald-400/60">→</span>
               <span>
                 {rumor.status === "진행중"
@@ -153,6 +176,37 @@ export default async function RumorDetailPage({
             {rumor.journalistIds.length}명의 서로 다른 기자가 이 이적설을 보도했습니다 (교차
             확인 — 참고용 표시이며 점수 계산에는 아직 반영하지 않습니다).
           </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold tracking-wide text-zinc-400">이적 이력</h2>
+
+          {playerHistory.length === 0 ? (
+            <p className="text-sm text-zinc-400">등록된 이적 이력이 없습니다.</p>
+          ) : (
+            <ol className="flex flex-col gap-3 border-l border-zinc-200 pl-4 dark:border-zinc-700">
+              {playerHistory.map((entry, index) => (
+                <li key={`${entry.team}-${entry.startDate}`} className="relative">
+                  <span
+                    className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ${
+                      entry.endDate === null ? "bg-emerald-600" : "bg-zinc-300 dark:bg-zinc-600"
+                    }`}
+                  />
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    {entry.team}
+                    {entry.endDate === null && index === playerHistory.length - 1 && (
+                      <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        현재
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    {entry.startDate} ~ {entry.endDate ?? "현재"}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
         </section>
 
         <section className="flex flex-col gap-3">
@@ -195,16 +249,20 @@ export default async function RumorDetailPage({
                         </span>
                       )}
                       {/* 기자 신뢰도 보정이 반영된 최종 점수 (lib/trustScore.ts) */}
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                        {article.calibratedScore}점
-                      </span>
+                      <Tooltip content={SCORE_EXPLANATION}>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                          {article.calibratedScore}점
+                        </span>
+                      </Tooltip>
                     </div>
                   </div>
 
                   <div className="mt-2 flex items-center gap-2 text-xs">
-                    <span className="rounded-full border border-zinc-300 px-2 py-0.5 font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
-                      {article.certainty}
-                    </span>
+                    <Tooltip content={CERTAINTY_DESCRIPTION[article.certainty]}>
+                      <span className="rounded-full border border-zinc-300 px-2 py-0.5 font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+                        {article.certainty}
+                      </span>
+                    </Tooltip>
                     <span className="text-zinc-400">
                       {formatRelativeDate(article.publishedAt)} · {article.publishedAt}
                     </span>

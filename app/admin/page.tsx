@@ -6,7 +6,7 @@ import { KNOWN_TEAMS } from "@/lib/dummyData";
 import PlayerSearchSelect, { type PlayerOption } from "@/components/PlayerSearchSelect";
 import TeamSearchInput from "@/components/TeamSearchInput";
 import AuthGate from "@/components/AuthGate";
-import { useAdminSession, useIsAdmin } from "@/lib/auth";
+import { useAdminSession } from "@/lib/auth";
 import { getSupabaseClient } from "@/lib/supabase";
 import { saveArticle, type JournalistRow } from "@/lib/articleMutations";
 import type { Certainty } from "@/lib/types";
@@ -22,7 +22,6 @@ const inputClass =
 
 function ArticleForm() {
   const session = useAdminSession();
-  const isAdmin = useIsAdmin(session);
   const [journalists, setJournalists] = useState<JournalistRow[]>([]);
   // 선수는 players 마스터 테이블에서 검색해서 "선택"하는 방식 (자유 입력 불가).
   // 선택하면 그 선수의 현재 소속팀으로 "이적 전 팀"을 자동으로 채운다.
@@ -33,6 +32,21 @@ function ArticleForm() {
   const [teamSuggestions, setTeamSuggestions] = useState<string[]>(KNOWN_TEAMS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [playersError, setPlayersError] = useState<string | null>(null);
+  // "아직 안 불러왔다"와 "불러왔는데 비어 있다"를 구분하기 위한 로딩 상태.
+  // 이게 없으면 데이터가 도착하기 전 짧은 순간에도 "목록이 비어 있습니다"
+  // 안내가 잘못 떠버린다.
+  const [loadingJournalists, setLoadingJournalists] = useState(true);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  // 새 기자 추가용 미니 폼 상태. 담당 리그/초기 티어는 선택 입력이고, 초기
+  // 티어를 비우면 낮은 기본값(LOW_DEFAULT_TIER)으로 들어간다 — 검증 안 된
+  // 새 기자를 함부로 높은 신뢰도로 시작시키지 않기 위해서다.
+  const [showNewJournalist, setShowNewJournalist] = useState(false);
+  const [newJournalistName, setNewJournalistName] = useState("");
+  const [newJournalistOutlet, setNewJournalistOutlet] = useState("");
+  const [newJournalistLeague, setNewJournalistLeague] = useState("");
+  const [newJournalistTier, setNewJournalistTier] = useState("");
+  const [creatingJournalist, setCreatingJournalist] = useState(false);
+  const [newJournalistError, setNewJournalistError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
@@ -62,7 +76,8 @@ function ArticleForm() {
           setForm((prev) => ({ ...prev, journalistId: data.journalists[0].id }));
         }
       })
-      .catch((err) => setLoadError(String(err)));
+      .catch((err) => setLoadError(String(err)))
+      .finally(() => setLoadingJournalists(false));
 
     fetch("/api/players")
       .then((res) => res.json())
@@ -73,7 +88,8 @@ function ArticleForm() {
         }
         setPlayers(data.players);
       })
-      .catch((err) => setPlayersError(String(err)));
+      .catch((err) => setPlayersError(String(err)))
+      .finally(() => setLoadingPlayers(false));
 
     fetch("/api/teams")
       .then((res) => res.json())
@@ -112,6 +128,63 @@ function ArticleForm() {
     };
     setPlayers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     return created;
+  };
+
+  const LOW_DEFAULT_TIER = 30;
+
+  // 검색해도 없는 기자를 등록 폼에서 바로 새로 만든다. journalists 쓰기도
+  // "로그인한 사용자 누구나" 정책이라 관리자가 아니어도 된다. 이름 중복은
+  // journalists_name_key 유니크 인덱스(supabase/seed.sql)가 DB 단에서 막아주고,
+  // 여기선 그 전에 한 번 더 걸러서 더 친절한 에러 메시지를 보여준다.
+  const handleCreateJournalist = async () => {
+    const name = newJournalistName.trim();
+    if (!name) return;
+
+    if (journalists.some((j) => j.name === name)) {
+      setNewJournalistError("이미 같은 이름의 기자가 있습니다.");
+      return;
+    }
+
+    setCreatingJournalist(true);
+    setNewJournalistError(null);
+
+    const outlet = newJournalistOutlet.trim() || "미확인 매체";
+    const league = newJournalistLeague.trim();
+    const tierInput = newJournalistTier.trim();
+    const tier = tierInput ? Number(tierInput) : LOW_DEFAULT_TIER;
+    const leagueTiers = league && tierInput ? [{ league, score: tier }] : [];
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("journalists")
+      .insert({ name, outlet, league_tiers: leagueTiers, base_tier: tier })
+      .select()
+      .single();
+
+    setCreatingJournalist(false);
+
+    if (error) {
+      // 23505 = unique_violation (journalists_name_key)
+      setNewJournalistError(
+        error.code === "23505" ? "이미 같은 이름의 기자가 있습니다." : error.message,
+      );
+      return;
+    }
+
+    const created: JournalistRow = {
+      id: data.id as string,
+      name: data.name as string,
+      outlet: data.outlet as string,
+      league_tiers: data.league_tiers as { league: string; score: number }[] | null,
+      base_tier: data.base_tier as number,
+    };
+    setJournalists((prev) => [...prev, created]);
+    setForm((p) => ({ ...p, journalistId: created.id }));
+    setNewJournalistName("");
+    setNewJournalistOutlet("");
+    setNewJournalistLeague("");
+    setNewJournalistTier("");
+    setShowNewJournalist(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -162,12 +235,17 @@ function ArticleForm() {
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">기사 등록</h1>
-        {isAdmin && (
-          <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
-            클럽 설정 →
-          </Link>
-        )}
+        {/* 관리자 전용 기능(클럽 설정 · 기사 승인/반려)은 is_admin이 아니라
+            별도 비밀번호로 보호된다 — 이 링크는 누구에게나 보이고, 실제 인증은
+            /admin/settings 화면 자체에서 비밀번호로 확인한다. */}
+        <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
+          관리자 →
+        </Link>
       </div>
+
+      {loadingJournalists && !loadError && (
+        <p className="text-sm text-zinc-400">기자 목록을 불러오는 중...</p>
+      )}
 
       {loadError && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -207,6 +285,61 @@ function ArticleForm() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setShowNewJournalist((v) => !v)}
+            className="self-start text-xs text-emerald-600 hover:underline"
+          >
+            {showNewJournalist ? "취소" : "+ 목록에 없는 기자 추가"}
+          </button>
+
+          {showNewJournalist && (
+            <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800">
+              <input
+                type="text"
+                value={newJournalistName}
+                onChange={(e) => setNewJournalistName(e.target.value)}
+                placeholder="이름 (필수)"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+              />
+              <input
+                type="text"
+                value={newJournalistOutlet}
+                onChange={(e) => setNewJournalistOutlet(e.target.value)}
+                placeholder="소속 매체 (선택)"
+                className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={newJournalistLeague}
+                  onChange={(e) => setNewJournalistLeague(e.target.value)}
+                  placeholder="담당 리그 (선택)"
+                  className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={newJournalistTier}
+                  onChange={(e) => setNewJournalistTier(e.target.value)}
+                  placeholder={`초기 티어 (비우면 ${LOW_DEFAULT_TIER})`}
+                  className="rounded border border-zinc-300 px-2 py-1 text-xs outline-none focus:border-emerald-600"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateJournalist}
+                disabled={creatingJournalist || !newJournalistName.trim()}
+                className="self-start rounded bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+              >
+                {creatingJournalist ? "추가 중..." : "기자 추가"}
+              </button>
+              {newJournalistError && (
+                <p className="text-xs text-red-600">{newJournalistError}</p>
+              )}
+            </div>
+          )}
         </label>
 
         <label className="flex flex-col gap-1 text-sm text-zinc-600">
@@ -221,12 +354,15 @@ function ArticleForm() {
             }}
             onCreateNew={handleCreatePlayer}
           />
+          {loadingPlayers && (
+            <span className="text-xs text-zinc-400">선수 목록을 불러오는 중...</span>
+          )}
           {playersError && (
             <span className="text-xs text-red-600">
               선수 목록을 불러오지 못했습니다: {playersError}
             </span>
           )}
-          {!playersError && players.length === 0 && (
+          {!loadingPlayers && !playersError && players.length === 0 && (
             <span className="text-xs text-zinc-400">
               선수 목록이 비어 있습니다. supabase/seed.sql을 실행했는지 확인하세요.
             </span>

@@ -17,6 +17,7 @@ import {
 import { buildClubMap, type LiveClub } from "@/lib/supabaseData";
 import { useAdminSession } from "@/lib/auth";
 import { useFavoritePlayers } from "@/lib/favorites";
+import { useInterestedPlayers } from "@/lib/interests";
 import type { Journalist, Rumor } from "@/lib/types";
 
 interface HomeClientProps {
@@ -35,6 +36,11 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
 
   const session = useAdminSession();
   const { favorites, toggleFavorite } = useFavoritePlayers(session);
+  // 로그인 없이 쓰는 "관심 선수" — 이 브라우저의 localStorage에만 저장된다
+  // (lib/interests.ts 주석 참고). hydrated 전에는 항상 false라서, 서버
+  // 렌더링 결과와 클라이언트 렌더링 결과가 깜빡이지 않고 자연스럽게 이어진다.
+  const { interests, toggleInterest } = useInterestedPlayers();
+  const [onlyInterested, setOnlyInterested] = useState(false);
 
   const players = useMemo(() => [...new Set(rumors.map((rumor) => rumor.playerName))], [rumors]);
   // "팀별" 필터는 더 이상 고정된 5팀(CORE_TEAMS)이 아니라, 실제 이적설에
@@ -45,15 +51,18 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
     [rumors],
   );
 
-  const visibleRumors = useMemo(
-    () => sortRumors(filterRumors(rumors, filter), sort),
-    [rumors, filter, sort],
-  );
+  const visibleRumors = useMemo(() => {
+    const base = sortRumors(filterRumors(rumors, filter), sort);
+    if (!onlyInterested) return base;
+    return base.filter((rumor) => interests.has(rumor.playerName));
+  }, [rumors, filter, sort, onlyInterested, interests]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
       <Header />
-      <div className="mx-auto flex w-full max-w-5xl flex-1">
+      {/* 좁은 화면에서는 사이드바(고정 너비 w-52)가 본문을 짓누르지 않도록
+          위아래로 쌓고(flex-col), 데스크톱(md 이상)에서만 좌우로 나란히 둔다. */}
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col md:flex-row">
         <FilterSidebar
           teams={teams}
           players={players}
@@ -61,7 +70,7 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
           value={filter}
           onChange={setFilter}
         />
-        <main className="flex flex-1 flex-col gap-4 px-6 py-6">
+        <main className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
           <SearchBar
             value={filter.query}
             onChange={(query) => setFilter((prev) => ({ ...prev, query }))}
@@ -74,7 +83,7 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span>총 {visibleRumors.length}건</span>
               {hasActiveFilter(filter) && (
                 <button
@@ -85,6 +94,18 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
                   필터 초기화
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setOnlyInterested((v) => !v)}
+                title="관심 선수는 이 브라우저에만 저장됩니다 — 기기를 바꾸면 사라져요."
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  onlyInterested
+                    ? "bg-amber-500 text-white"
+                    : "bg-white text-zinc-500 ring-1 ring-zinc-200 hover:text-amber-500 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-700"
+                }`}
+              >
+                ★ 관심 목록만 보기{interests.size > 0 ? ` (${interests.size})` : ""}
+              </button>
             </div>
 
             <div className="flex items-center gap-1 text-xs">
@@ -108,7 +129,11 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
           <section className="flex flex-col gap-3">
             {visibleRumors.length === 0 ? (
               <p className="rounded-lg border border-dashed border-zinc-300 py-16 text-center text-sm text-zinc-400">
-                {loadError ? "데이터를 불러오지 못했습니다." : "조건에 맞는 이적설이 없습니다."}
+                {loadError
+                  ? "데이터를 불러오지 못했습니다."
+                  : onlyInterested
+                    ? "관심 목록에 추가한 이적설이 없습니다. 카드의 ☆를 눌러 추가해보세요."
+                    : "조건에 맞는 이적설이 없습니다."}
               </p>
             ) : (
               visibleRumors.map((rumor) => (
@@ -119,6 +144,8 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
                   isFavorited={favorites.has(rumor.playerName)}
                   loggedIn={!!session}
                   onToggleFavorite={() => toggleFavorite(rumor.playerName)}
+                  isInterested={interests.has(rumor.playerName)}
+                  onToggleInterest={() => toggleInterest(rumor.playerName)}
                 />
               ))
             )}

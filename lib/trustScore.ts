@@ -17,6 +17,18 @@ export const CERTAINTY_WEIGHT: Record<Certainty, number> = {
   관심: 0.4,
 };
 
+/** 확실성 문구 툴팁용 설명. 실제 이적 기사에서 흔히 쓰이는 표현(Here We Go,
+ * 메디컬 진행 등)을 예로 들어 비전문가도 바로 이해할 수 있게 적었다. */
+export const CERTAINTY_DESCRIPTION: Record<Certainty, string> = {
+  확정: "구단 공식 발표 수준의 확정 보도 (예: \"Here We Go\", 계약 서명 완료)",
+  진전: "메디컬 테스트, 구단 간 합의 등 구체적인 진전이 있다는 보도",
+  관심: "아직 초기 단계의 관심 · 타진 수준 보도",
+};
+
+/** 신뢰 점수 툴팁용 설명. */
+export const SCORE_EXPLANATION =
+  "신뢰 점수 = 기자의 리그별 신뢰도 티어 × 확실성 가중치 × 기자의 과거 적중률 보정. 100점에 가까울수록 믿을 만한 기자 · 확실한 보도의 조합입니다.";
+
 /** 기자의 (리그별 티어 → 없으면 기본 티어) 순으로 점수를 조회한다. */
 export function getTierScore(journalist: Journalist, league: string): number {
   const matched = journalist.leagueTiers.find((tier) => tier.league === league);
