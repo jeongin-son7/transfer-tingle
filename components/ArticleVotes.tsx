@@ -6,7 +6,14 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 type Vote = "agree" | "disagree";
 
-export default function ArticleVotes({ articleId }: { articleId: string }) {
+export default function ArticleVotes({
+  articleId,
+  disabled = false,
+}: {
+  articleId: string;
+  /** 이적설이 이미 성사/무산으로 끝났으면 더 투표할 의미가 없어서 막는다. */
+  disabled?: boolean;
+}) {
   const session = useAdminSession();
   const [agree, setAgree] = useState(0);
   const [disagree, setDisagree] = useState(0);
@@ -30,7 +37,7 @@ export default function ArticleVotes({ articleId }: { articleId: string }) {
   }, [articleId, session]);
 
   const handleVote = async (vote: Vote) => {
-    if (!session) return;
+    if (!session || disabled) return;
     const supabase = getSupabaseClient();
 
     if (myVote === vote) {
@@ -66,8 +73,8 @@ export default function ArticleVotes({ articleId }: { articleId: string }) {
       <button
         type="button"
         onClick={() => handleVote("agree")}
-        disabled={!session}
-        title={session ? undefined : "로그인하면 투표할 수 있어요"}
+        disabled={!session || disabled}
+        title={disabled ? "종결된 이적설이라 투표할 수 없어요" : session ? undefined : "로그인하면 투표할 수 있어요"}
         className={`rounded-full px-2 py-1 disabled:opacity-50 ${
           myVote === "agree"
             ? "bg-emerald-600 text-white"
@@ -79,8 +86,8 @@ export default function ArticleVotes({ articleId }: { articleId: string }) {
       <button
         type="button"
         onClick={() => handleVote("disagree")}
-        disabled={!session}
-        title={session ? undefined : "로그인하면 투표할 수 있어요"}
+        disabled={!session || disabled}
+        title={disabled ? "종결된 이적설이라 투표할 수 없어요" : session ? undefined : "로그인하면 투표할 수 있어요"}
         className={`rounded-full px-2 py-1 disabled:opacity-50 ${
           myVote === "disagree"
             ? "bg-red-500 text-white"

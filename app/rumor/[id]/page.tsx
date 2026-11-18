@@ -129,14 +129,23 @@ export default async function RumorDetailPage({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <p className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-              종합 신뢰 점수 {rumor.score}점
+            <p className="inline-flex flex-wrap items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              <span>종합 신뢰 점수 {rumor.score}점</span>
+              <span className="font-normal text-emerald-600/60 dark:text-emerald-400/60">→</span>
+              <span>
+                {rumor.status === "진행중"
+                  ? "아직 결과 없음"
+                  : `실제 결과: ${rumor.status}${rumor.actualTeam ? `(${rumor.actualTeam})` : ""}`}
+              </span>
             </p>
             <span className="text-xs text-zinc-400">
               ♥ {rumor.favoriteCount} · 조회 {rumor.viewCount}
             </span>
             <ShareButton title={`${rumor.playerName} 이적설 - 이적팅글`} />
           </div>
+          {rumor.status !== "진행중" && rumor.resolvedAt && (
+            <p className="mt-1 text-xs text-zinc-400">결과 확정일: {rumor.resolvedAt}</p>
+          )}
         </section>
 
         <section className="flex flex-col gap-3">
@@ -173,7 +182,7 @@ export default async function RumorDetailPage({
 
                   <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">{article.summary}</p>
 
-                  <ArticleVotes articleId={article.id} />
+                  <ArticleVotes articleId={article.id} disabled={rumor.status !== "진행중"} />
 
                   <a
                     href={article.url}

@@ -11,7 +11,7 @@
 import { cache } from "react";
 import { getSupabaseClient } from "./supabase";
 import { calculateAggregateScore } from "./trustScore";
-import type { Certainty, Journalist, Rumor } from "./types";
+import type { Certainty, Journalist, Rumor, RumorStatus } from "./types";
 
 export interface LiveArticle {
   id: string;
@@ -117,11 +117,18 @@ function toClub(row: {
 
 const RECENT_MS = 24 * 60 * 60 * 1000;
 
+interface RumorOutcome {
+  status: RumorStatus;
+  actualTeam: string | null;
+  resolvedAt: string | null;
+}
+
 function buildRumors(
   articles: LiveArticle[],
   journalists: Journalist[],
   favoriteCounts: Map<string, number>,
   viewCounts: Map<string, number>,
+  outcomes: Map<string, RumorOutcome>,
 ): Rumor[] {
   const journalistById = new Map(journalists.map((j) => [j.id, j]));
   const playerOrder = [...new Set(articles.map((a) => a.playerName))];
@@ -157,6 +164,9 @@ function buildRumors(
       viewCount: viewCounts.get(playerName) ?? 0,
       latestCreatedAt,
       isRecentlyAdded: now - new Date(latestCreatedAt).getTime() < RECENT_MS,
+      status: outcomes.get(playerName)?.status ?? "진행중",
+      actualTeam: outcomes.get(playerName)?.actualTeam ?? null,
+      resolvedAt: outcomes.get(playerName)?.resolvedAt ?? null,
     };
   });
 }
@@ -167,17 +177,23 @@ function buildRumors(
 export const fetchLiveData = cache(async (): Promise<LiveData> => {
   const supabase = getSupabaseClient();
 
-  const [journalistsRes, articlesRes, clubsRes, favoritesRes, viewsRes] = await Promise.all([
-    supabase.from("journalists").select("id, name, outlet, league_tiers, base_tier"),
-    supabase
-      .from("articles")
-      .select(
-        "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score, created_by, created_at",
-      ),
-    supabase.from("clubs").select("id, name, short_code, league, logo_url"),
-    supabase.from("favorites").select("player_name"),
-    supabase.from("rumor_views").select("player_name, view_count"),
-  ]);
+  const [journalistsRes, articlesRes, clubsRes, favoritesRes, viewsRes, outcomesRes] =
+    await Promise.all([
+      supabase.from("journalists").select("id, name, outlet, league_tiers, base_tier"),
+      supabase
+        .from("articles")
+        .select(
+          "id, url, journalist_id, player_name, from_team, to_team, certainty, summary, published_at, score, created_by, created_at",
+        ),
+      supabase.from("clubs").select("id, name, short_code, league, logo_url"),
+      supabase.from("favorites").select("player_name"),
+      supabase.from("rumor_views").select("player_name, view_count"),
+      // rumors의 결과 컬럼(status/actual_team/resolved_at)은 supabase/migration_
+      // rumor_outcome.sql을 아직 실행하지 않았으면 존재하지 않을 수 있다 — 그
+      // 경우 이 조회만 에러가 나는데, 결과 표시는 부가 기능이라 사이트 전체가
+      // 안 뜨면 안 되므로 throw하지 않고 빈 결과로 넘어간다(전부 "진행중" 취급).
+      supabase.from("rumors").select("player_name, status, actual_team, resolved_at"),
+    ]);
 
   if (journalistsRes.error) throw new Error(journalistsRes.error.message);
   if (articlesRes.error) throw new Error(articlesRes.error.message);
@@ -197,7 +213,18 @@ export const fetchLiveData = cache(async (): Promise<LiveData> => {
     (viewsRes.data ?? []).map((row) => [row.player_name, row.view_count as number]),
   );
 
-  const rumors = buildRumors(articles, journalists, favoriteCounts, viewCounts);
+  const outcomes = new Map<string, RumorOutcome>(
+    (outcomesRes.error ? [] : outcomesRes.data ?? []).map((row) => [
+      row.player_name as string,
+      {
+        status: row.status as RumorStatus,
+        actualTeam: row.actual_team as string | null,
+        resolvedAt: row.resolved_at as string | null,
+      },
+    ]),
+  );
+
+  const rumors = buildRumors(articles, journalists, favoriteCounts, viewCounts, outcomes);
 
   return { journalists, articles, rumors, clubs };
 });

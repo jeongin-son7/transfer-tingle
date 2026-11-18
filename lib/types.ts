@@ -3,6 +3,9 @@
 
 export type Certainty = "확정" | "진전" | "관심";
 
+/** 이적설 결과. rumors 테이블에 해당 선수 행이 없으면 기본값 "진행중"으로 취급. */
+export type RumorStatus = "진행중" | "성사" | "무산";
+
 export interface Journalist {
   id: string;
   name: string;
@@ -56,4 +59,10 @@ export interface Rumor {
   /** latestCreatedAt이 24시간 이내인지. 데이터를 가져올 때(서버) 미리 계산해둔다 —
    * 컴포넌트 렌더링 중에 Date.now()를 직접 부르면 순수하지 않은 렌더가 되기 때문. */
   isRecentlyAdded: boolean;
+  /** 이적설 결과(진행중/성사/무산). rumors 테이블에 행이 없으면 "진행중". */
+  status: RumorStatus;
+  /** 성사/무산 시 실제 도착팀. 진행 중이면 null. */
+  actualTeam: string | null;
+  /** 결과가 확정된 날짜(구단 공식 발표일 등). 진행 중이면 null. */
+  resolvedAt: string | null;
 }

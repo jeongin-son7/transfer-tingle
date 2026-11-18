@@ -422,6 +422,9 @@ function buildRumors(): Rumor[] {
       viewCount: 0,
       latestCreatedAt: latestArticle.publishedAt,
       isRecentlyAdded: false,
+      status: "진행중",
+      actualTeam: null,
+      resolvedAt: null,
     };
   });
 }

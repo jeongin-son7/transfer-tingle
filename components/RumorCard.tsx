@@ -1,9 +1,15 @@
 import Link from "next/link";
-import type { Rumor } from "@/lib/types";
+import type { Rumor, RumorStatus } from "@/lib/types";
 import type { LiveClub } from "@/lib/supabaseData";
 import TeamBadge from "./TeamBadge";
 import FavoriteButton from "./FavoriteButton";
 import { formatRelativeDate } from "@/lib/relativeDate";
+
+const STATUS_BADGE_STYLE: Record<RumorStatus, string> = {
+  진행중: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+  성사: "bg-emerald-600 text-white",
+  무산: "bg-zinc-500 text-white",
+};
 
 export default function RumorCard({
   rumor,
@@ -29,6 +35,11 @@ export default function RumorCard({
         <div className="flex items-center justify-between gap-3 pr-8">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">{rumor.playerName}</h3>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${STATUS_BADGE_STYLE[rumor.status]}`}
+            >
+              {rumor.status}
+            </span>
             {rumor.isRecentlyAdded && (
               <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
                 NEW
