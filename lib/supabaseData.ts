@@ -10,7 +10,15 @@
 
 import { cache } from "react";
 import { getSupabaseClient } from "./supabase";
-import { calculateAggregateScore } from "./trustScore";
+import { getTeamLeague } from "./teams";
+import {
+  calculateAggregateScore,
+  calibrateJournalist,
+  judgeArticle,
+  applyCalibrationMultiplier,
+  type ArticleJudgment,
+  type JournalistCalibration,
+} from "./trustScore";
 import type { Certainty, Journalist, Rumor, RumorStatus } from "./types";
 
 export interface LiveArticle {
@@ -20,11 +28,22 @@ export interface LiveArticle {
   playerName: string;
   fromTeam: string;
   toTeam: string;
+  /** 신뢰도 티어 조회에 쓰는 리그 태그(이적 전 팀 기준). DB엔 안 저장돼 있어서
+   * 매번 fromTeam으로 다시 계산한다(lib/teams.ts getTeamLeague, 결정론적 함수). */
+  league: string;
   certainty: Certainty;
   summary: string;
   publishedAt: string;
-  /** articles.score — 저장 시점에 lib/articleMutations.ts가 이미 계산해 둔 값. */
+  /** articles.score — 저장 시점에 lib/articleMutations.ts가 이미 계산해 둔 "원점수"
+   * (티어 × 확실성 가중치). DB 그대로의 값이라 수정하지 않는다. */
   score: number;
+  /** 기자 신뢰도 보정 배율을 score에 곱한 "화면에 보여줄 최종 점수". 저장은
+   * 안 하고 조회할 때마다 다시 계산한다 — 새 이적설이 결과가 날 때마다 과거
+   * 기사들의 점수도 자동으로 다시 반영돼야 하기 때문. */
+  calibratedScore: number;
+  /** 이 기사가 결과 확정된 이적설에 대한 확정/진전 보도였는지, 맞았는지. 관심
+   * 단계 기사나 아직 결과가 안 난 이적설의 기사는 null(판정 불가). */
+  judgment: ArticleJudgment | null;
   /** 이 기사를 등록한 사용자(마이페이지 "내 기사"용). 가입 이전에 들어간
    * 기사는 null. */
   createdBy: string | null;
@@ -45,6 +64,9 @@ export interface LiveData {
   articles: LiveArticle[];
   rumors: Rumor[];
   clubs: LiveClub[];
+  /** 기자별 적중률 보정 결과. 랭킹 페이지(/journalists)와 기자 프로필 페이지
+   * (/journalist/[id])에서 쓴다. */
+  journalistStats: JournalistStat[];
 }
 
 /** 클럽 이름 → 클럽 정보. TeamBadge가 관리자 설정 화면에서 수정한 로고/약자를
@@ -69,6 +91,11 @@ function toJournalist(row: {
   };
 }
 
+/** DB row → LiveArticle의 "원본" 필드만 옮긴 중간 모양. league/calibratedScore/
+ * judgment는 다른 기사·이적설 결과와 같이 봐야 계산되는 값이라 여기서는 못
+ * 채우고, fetchLiveData에서 enrichArticles()가 나중에 채운다. */
+type RawLiveArticle = Omit<LiveArticle, "league" | "calibratedScore" | "judgment">;
+
 function toArticle(row: {
   id: string;
   url: string;
@@ -82,7 +109,7 @@ function toArticle(row: {
   score: number | null;
   created_by: string | null;
   created_at: string;
-}): LiveArticle {
+}): RawLiveArticle {
   return {
     id: row.id,
     url: row.url,
@@ -123,6 +150,63 @@ interface RumorOutcome {
   resolvedAt: string | null;
 }
 
+/** 기자 한 명의 신뢰도 보정 결과 + 화면에 보여줄 이름/매체. 랭킹 페이지와
+ * 기자 프로필 페이지(/journalist/[id])가 같이 쓴다. */
+export interface JournalistStat extends JournalistCalibration {
+  journalistId: string;
+  name: string;
+  outlet: string;
+}
+
+/**
+ * articles에 league/calibratedScore/judgment를 채워 넣고, 기자별 적중률 보정
+ * 결과도 같이 계산한다. 보정은 "이 기자가 쓴 모든 결과-확정 기사"를 기준으로
+ * 하므로, 특정 이적설 하나에 종속되지 않는 전역 계산이다.
+ */
+function enrichArticles(
+  rawArticles: RawLiveArticle[],
+  journalists: Journalist[],
+  outcomes: Map<string, RumorOutcome>,
+): { articles: LiveArticle[]; journalistStats: JournalistStat[] } {
+  const judgments = rawArticles.map((article) => {
+    const outcome = outcomes.get(article.playerName) ?? { status: "진행중" as RumorStatus, actualTeam: null };
+    return judgeArticle(article, outcome);
+  });
+
+  const tally = new Map<string, { hits: number; judgedCount: number }>();
+  rawArticles.forEach((article, index) => {
+    const judgment = judgments[index];
+    if (judgment === null) return;
+    const entry = tally.get(article.journalistId) ?? { hits: 0, judgedCount: 0 };
+    entry.judgedCount += 1;
+    if (judgment === "적중") entry.hits += 1;
+    tally.set(article.journalistId, entry);
+  });
+
+  const journalistStats: JournalistStat[] = journalists.map((journalist) => {
+    const { hits, judgedCount } = tally.get(journalist.id) ?? { hits: 0, judgedCount: 0 };
+    return {
+      journalistId: journalist.id,
+      name: journalist.name,
+      outlet: journalist.outlet,
+      ...calibrateJournalist(journalist, hits, judgedCount),
+    };
+  });
+  const statById = new Map(journalistStats.map((stat) => [stat.journalistId, stat]));
+
+  const articles: LiveArticle[] = rawArticles.map((article, index) => {
+    const multiplier = statById.get(article.journalistId)?.multiplier ?? 1;
+    return {
+      ...article,
+      league: getTeamLeague(article.fromTeam),
+      calibratedScore: applyCalibrationMultiplier(article.score, multiplier),
+      judgment: judgments[index],
+    };
+  });
+
+  return { articles, journalistStats };
+}
+
 function buildRumors(
   articles: LiveArticle[],
   journalists: Journalist[],
@@ -153,7 +237,9 @@ function buildRumors(
       toTeam: latestArticle.toTeam,
       articleIds: playerArticles.map((a) => a.id),
       journalistIds: [...new Set(playerArticles.map((a) => a.journalistId))],
-      score: calculateAggregateScore(playerArticles.map((a) => a.score)),
+      // 기자 신뢰도 보정이 반영된 점수로 평균을 낸다 — 그래서 다른 이적설의
+      // 결과가 새로 확정될 때마다 이 선수의 종합 점수도 같이 바뀔 수 있다.
+      score: calculateAggregateScore(playerArticles.map((a) => a.calibratedScore)),
       updatedAt: latestArticle.publishedAt,
       latestArticle: {
         journalistName: journalistById.get(latestArticle.journalistId)?.name ?? "알 수 없음",
@@ -202,7 +288,7 @@ export const fetchLiveData = cache(async (): Promise<LiveData> => {
   if (viewsRes.error) throw new Error(viewsRes.error.message);
 
   const journalists = (journalistsRes.data ?? []).map(toJournalist);
-  const articles = (articlesRes.data ?? []).map(toArticle);
+  const rawArticles = (articlesRes.data ?? []).map(toArticle);
   const clubs = (clubsRes.data ?? []).map(toClub);
 
   const favoriteCounts = new Map<string, number>();
@@ -224,7 +310,8 @@ export const fetchLiveData = cache(async (): Promise<LiveData> => {
     ]),
   );
 
+  const { articles, journalistStats } = enrichArticles(rawArticles, journalists, outcomes);
   const rumors = buildRumors(articles, journalists, favoriteCounts, viewCounts, outcomes);
 
-  return { journalists, articles, rumors, clubs };
+  return { journalists, articles, rumors, clubs, journalistStats };
 });

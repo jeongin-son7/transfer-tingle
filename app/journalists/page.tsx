@@ -11,10 +11,13 @@ export default async function JournalistsPage() {
     outlet: string;
     articleCount: number;
     averageScore: number;
+    judgedCount: number;
+    hits: number;
   }[] = [];
 
   try {
-    const { journalists, articles } = await fetchLiveData();
+    const { journalists, articles, journalistStats } = await fetchLiveData();
+    const statById = new Map(journalistStats.map((stat) => [stat.journalistId, stat]));
 
     rows = journalists
       .map((journalist) => {
@@ -22,7 +25,8 @@ export default async function JournalistsPage() {
         const averageScore =
           own.length === 0
             ? 0
-            : Math.round(own.reduce((sum, a) => sum + a.score, 0) / own.length);
+            : Math.round(own.reduce((sum, a) => sum + a.calibratedScore, 0) / own.length);
+        const stat = statById.get(journalist.id);
 
         return {
           id: journalist.id,
@@ -30,6 +34,8 @@ export default async function JournalistsPage() {
           outlet: journalist.outlet,
           articleCount: own.length,
           averageScore,
+          judgedCount: stat?.judgedCount ?? 0,
+          hits: stat?.hits ?? 0,
         };
       })
       .sort((a, b) => b.averageScore - a.averageScore || b.articleCount - a.articleCount);
@@ -48,7 +54,8 @@ export default async function JournalistsPage() {
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">기자 신뢰도 랭킹</h1>
         <p className="mt-1 text-xs text-zinc-400">
-          이 기자가 쓴 기사들의 개별 신뢰 점수 평균순으로 정렬했습니다.
+          이 기자가 쓴 기사들의 평균 점수순으로 정렬했습니다. 결과가 확정된 이적설의
+          적중률로 보정된 점수입니다.
         </p>
 
         {loadError && (
@@ -68,9 +75,15 @@ export default async function JournalistsPage() {
                   {index + 1}
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{row.name}</p>
+                  <Link
+                    href={`/journalist/${row.id}`}
+                    className="text-sm font-semibold text-zinc-900 hover:text-emerald-600 dark:text-zinc-50"
+                  >
+                    {row.name}
+                  </Link>
                   <p className="text-xs text-zinc-400">
                     {row.outlet} · 기사 {row.articleCount}건
+                    {row.judgedCount > 0 && ` · 적중률 ${row.hits}/${row.judgedCount}`}
                   </p>
                 </div>
               </div>

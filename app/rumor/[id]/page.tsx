@@ -9,6 +9,7 @@ import ArticleVotes from "@/components/ArticleVotes";
 import { buildClubMap, fetchLiveData } from "@/lib/supabaseData";
 import { getSupabaseClient } from "@/lib/supabase";
 import { formatRelativeDate } from "@/lib/relativeDate";
+import { getTierScore, CERTAINTY_WEIGHT } from "@/lib/trustScore";
 
 // 메인 화면과 마찬가지로 항상 최신 DB 데이터를 봐야 하므로 빌드 시점에 미리
 // 생성해두지 않는다 (예전엔 더미 데이터라 generateStaticParams로 미리 만들어
@@ -58,11 +59,13 @@ export default async function RumorDetailPage({
   let rumor: Awaited<ReturnType<typeof fetchLiveData>>["rumors"][number] | undefined;
   let journalists: Awaited<ReturnType<typeof fetchLiveData>>["journalists"] = [];
   let clubs: Awaited<ReturnType<typeof fetchLiveData>>["clubs"] = [];
+  let journalistStats: Awaited<ReturnType<typeof fetchLiveData>>["journalistStats"] = [];
 
   try {
     const data = await fetchLiveData();
     journalists = data.journalists;
     clubs = data.clubs;
+    journalistStats = data.journalistStats;
     rumor = data.rumors.find((r) => r.playerName === playerName);
     timeline = data.articles
       .filter((article) => article.playerName === playerName)
@@ -146,6 +149,10 @@ export default async function RumorDetailPage({
           {rumor.status !== "진행중" && rumor.resolvedAt && (
             <p className="mt-1 text-xs text-zinc-400">결과 확정일: {rumor.resolvedAt}</p>
           )}
+          <p className="mt-1 text-xs text-zinc-400">
+            {rumor.journalistIds.length}명의 서로 다른 기자가 이 이적설을 보도했습니다 (교차
+            확인 — 참고용 표시이며 점수 계산에는 아직 반영하지 않습니다).
+          </p>
         </section>
 
         <section className="flex flex-col gap-3">
@@ -158,17 +165,40 @@ export default async function RumorDetailPage({
               const journalist = journalists.find((j) => j.id === article.journalistId);
               if (!journalist) return null;
 
+              const stat = journalistStats.find((s) => s.journalistId === article.journalistId);
+              const tierScore = getTierScore(journalist, article.league);
+              const certaintyWeight = CERTAINTY_WEIGHT[article.certainty];
+              const multiplier = stat?.multiplier ?? 1;
+
               return (
                 <li key={article.id} className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{journalist.name}</p>
+                      <Link
+                        href={`/journalist/${journalist.id}`}
+                        className="text-sm font-semibold text-zinc-900 hover:text-emerald-600 dark:text-zinc-50"
+                      >
+                        {journalist.name}
+                      </Link>
                       <p className="text-xs text-zinc-400">{journalist.outlet}</p>
                     </div>
-                    {/* 저장 시점에 lib/articleMutations.ts가 계산해 둔 개별 신뢰 점수 */}
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                      {article.score}점
-                    </span>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {article.judgment && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                            article.judgment === "적중"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-red-500 text-white"
+                          }`}
+                        >
+                          {article.judgment}
+                        </span>
+                      )}
+                      {/* 기자 신뢰도 보정이 반영된 최종 점수 (lib/trustScore.ts) */}
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        {article.calibratedScore}점
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-2 flex items-center gap-2 text-xs">
@@ -181,6 +211,16 @@ export default async function RumorDetailPage({
                   </div>
 
                   <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">{article.summary}</p>
+
+                  {/* 왜 이 점수인가: 티어 × 확실성 가중치 × 적중률 보정 배율 */}
+                  <p className="mt-2 text-[11px] text-zinc-400">
+                    티어 {tierScore}점({article.league}) × 확실성 {certaintyWeight}
+                    ({article.certainty}) × 보정 {multiplier.toFixed(2)}
+                    {stat && stat.judgedCount > 0
+                      ? `(적중 ${stat.hits}/${stat.judgedCount})`
+                      : "(판정 전)"}{" "}
+                    = {article.calibratedScore}점
+                  </p>
 
                   <ArticleVotes articleId={article.id} disabled={rumor.status !== "진행중"} />
 
