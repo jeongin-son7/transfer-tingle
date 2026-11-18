@@ -6,7 +6,7 @@ import { KNOWN_TEAMS } from "@/lib/dummyData";
 import PlayerSearchSelect, { type PlayerOption } from "@/components/PlayerSearchSelect";
 import TeamSearchInput from "@/components/TeamSearchInput";
 import AuthGate from "@/components/AuthGate";
-import { useAdminSession, useIsAdmin } from "@/lib/auth";
+import { useAdminSession } from "@/lib/auth";
 import { getSupabaseClient } from "@/lib/supabase";
 import { saveArticle, type JournalistRow } from "@/lib/articleMutations";
 import type { Certainty } from "@/lib/types";
@@ -22,7 +22,6 @@ const inputClass =
 
 function ArticleForm() {
   const session = useAdminSession();
-  const isAdmin = useIsAdmin(session);
   const [journalists, setJournalists] = useState<JournalistRow[]>([]);
   // 선수는 players 마스터 테이블에서 검색해서 "선택"하는 방식 (자유 입력 불가).
   // 선택하면 그 선수의 현재 소속팀으로 "이적 전 팀"을 자동으로 채운다.
@@ -229,11 +228,12 @@ function ArticleForm() {
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">기사 등록</h1>
-        {isAdmin && (
-          <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
-            클럽 설정 →
-          </Link>
-        )}
+        {/* 관리자 전용 기능(클럽 설정 · 기사 승인/반려)은 is_admin이 아니라
+            별도 비밀번호로 보호된다 — 이 링크는 누구에게나 보이고, 실제 인증은
+            /admin/settings 화면 자체에서 비밀번호로 확인한다. */}
+        <Link href="/admin/settings" className="text-sm text-zinc-500 hover:text-emerald-600">
+          관리자 →
+        </Link>
       </div>
 
       {loadError && (
