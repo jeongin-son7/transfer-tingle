@@ -60,7 +60,9 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
   return (
     <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
       <Header />
-      <div className="mx-auto flex w-full max-w-5xl flex-1">
+      {/* 좁은 화면에서는 사이드바(고정 너비 w-52)가 본문을 짓누르지 않도록
+          위아래로 쌓고(flex-col), 데스크톱(md 이상)에서만 좌우로 나란히 둔다. */}
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col md:flex-row">
         <FilterSidebar
           teams={teams}
           players={players}
@@ -68,7 +70,7 @@ export default function HomeClient({ rumors, journalists, clubs, loadError }: Ho
           value={filter}
           onChange={setFilter}
         />
-        <main className="flex flex-1 flex-col gap-4 px-6 py-6">
+        <main className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
           <SearchBar
             value={filter.query}
             onChange={(query) => setFilter((prev) => ({ ...prev, query }))}

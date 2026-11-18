@@ -109,7 +109,10 @@ export default function FilterSidebar({
   onChange,
 }: FilterSidebarProps) {
   return (
-    <aside className="flex w-52 shrink-0 flex-col gap-6 border-r border-zinc-200 bg-white px-3 py-6 dark:border-zinc-800 dark:bg-zinc-900">
+    // 모바일(md 미만)에서는 본문 위에 가로 폭 전체로 쌓이고, md 이상에서만
+    // 고정 너비(w-52) 사이드바로 왼쪽에 붙는다 — HomeClient의 flex-col→md:flex-row
+    // 전환과 짝을 이룬다.
+    <aside className="flex w-full shrink-0 flex-col gap-6 border-b border-zinc-200 bg-white px-4 py-6 sm:px-3 md:w-52 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-900">
       <FilterGroup
         title="팀별"
         options={teams.map((team) => ({ key: team, label: team }))}

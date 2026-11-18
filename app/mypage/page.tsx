@@ -251,6 +251,10 @@ function MyArticles() {
         내가 등록한 기사만 모아서 수정·삭제할 수 있어요.
       </p>
 
+      {!loaded && !loadError && (
+        <p className="mt-4 text-sm text-zinc-400">내 기사 목록을 불러오는 중...</p>
+      )}
+
       {loadError && (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           내 기사 목록을 불러오지 못했습니다: {loadError}

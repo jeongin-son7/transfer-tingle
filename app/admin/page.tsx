@@ -32,6 +32,11 @@ function ArticleForm() {
   const [teamSuggestions, setTeamSuggestions] = useState<string[]>(KNOWN_TEAMS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [playersError, setPlayersError] = useState<string | null>(null);
+  // "아직 안 불러왔다"와 "불러왔는데 비어 있다"를 구분하기 위한 로딩 상태.
+  // 이게 없으면 데이터가 도착하기 전 짧은 순간에도 "목록이 비어 있습니다"
+  // 안내가 잘못 떠버린다.
+  const [loadingJournalists, setLoadingJournalists] = useState(true);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
   // 새 기자 추가용 미니 폼 상태. 담당 리그/초기 티어는 선택 입력이고, 초기
   // 티어를 비우면 낮은 기본값(LOW_DEFAULT_TIER)으로 들어간다 — 검증 안 된
   // 새 기자를 함부로 높은 신뢰도로 시작시키지 않기 위해서다.
@@ -71,7 +76,8 @@ function ArticleForm() {
           setForm((prev) => ({ ...prev, journalistId: data.journalists[0].id }));
         }
       })
-      .catch((err) => setLoadError(String(err)));
+      .catch((err) => setLoadError(String(err)))
+      .finally(() => setLoadingJournalists(false));
 
     fetch("/api/players")
       .then((res) => res.json())
@@ -82,7 +88,8 @@ function ArticleForm() {
         }
         setPlayers(data.players);
       })
-      .catch((err) => setPlayersError(String(err)));
+      .catch((err) => setPlayersError(String(err)))
+      .finally(() => setLoadingPlayers(false));
 
     fetch("/api/teams")
       .then((res) => res.json())
@@ -236,6 +243,10 @@ function ArticleForm() {
         </Link>
       </div>
 
+      {loadingJournalists && !loadError && (
+        <p className="text-sm text-zinc-400">기자 목록을 불러오는 중...</p>
+      )}
+
       {loadError && (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           기자 목록을 불러오지 못했습니다: {loadError}
@@ -343,12 +354,15 @@ function ArticleForm() {
             }}
             onCreateNew={handleCreatePlayer}
           />
+          {loadingPlayers && (
+            <span className="text-xs text-zinc-400">선수 목록을 불러오는 중...</span>
+          )}
           {playersError && (
             <span className="text-xs text-red-600">
               선수 목록을 불러오지 못했습니다: {playersError}
             </span>
           )}
-          {!playersError && players.length === 0 && (
+          {!loadingPlayers && !playersError && players.length === 0 && (
             <span className="text-xs text-zinc-400">
               선수 목록이 비어 있습니다. supabase/seed.sql을 실행했는지 확인하세요.
             </span>
