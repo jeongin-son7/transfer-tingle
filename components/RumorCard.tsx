@@ -3,6 +3,7 @@ import type { Rumor, RumorStatus } from "@/lib/types";
 import type { LiveClub } from "@/lib/supabaseData";
 import TeamBadge from "./TeamBadge";
 import FavoriteButton from "./FavoriteButton";
+import InterestStarButton from "./InterestStarButton";
 import Tooltip from "./Tooltip";
 import { formatRelativeDate } from "@/lib/relativeDate";
 import { SCORE_EXPLANATION } from "@/lib/trustScore";
@@ -19,22 +20,27 @@ export default function RumorCard({
   isFavorited,
   loggedIn,
   onToggleFavorite,
+  isInterested,
+  onToggleInterest,
 }: {
   rumor: Rumor;
   clubs: Map<string, LiveClub>;
   isFavorited: boolean;
   loggedIn: boolean;
   onToggleFavorite: () => void;
+  isInterested: boolean;
+  onToggleInterest: () => void;
 }) {
   return (
     <article className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      {/* 하트 버튼은 <a> 안에 중첩된 인터랙티브 요소가 되지 않도록 Link 바깥에 둔다. */}
-      <div className="absolute right-3 top-3 z-10 text-lg">
+      {/* 하트/별 버튼은 <a> 안에 중첩된 인터랙티브 요소가 되지 않도록 Link 바깥에 둔다. */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 text-lg">
+        <InterestStarButton isInterested={isInterested} onToggle={onToggleInterest} />
         <FavoriteButton isFavorited={isFavorited} loggedIn={loggedIn} onToggle={onToggleFavorite} />
       </div>
 
       <Link href={`/rumor/${rumor.id}`} className="block p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800">
-        <div className="flex items-center justify-between gap-3 pr-8">
+        <div className="flex items-center justify-between gap-3 pr-14">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">{rumor.playerName}</h3>
             <span

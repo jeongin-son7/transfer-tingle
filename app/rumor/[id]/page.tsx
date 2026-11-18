@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import TeamBadge from "@/components/TeamBadge";
 import RumorFavoriteToggle from "@/components/RumorFavoriteToggle";
+import InterestStarToggle from "@/components/InterestStarToggle";
 import ShareButton from "@/components/ShareButton";
 import CommentsSection from "@/components/CommentsSection";
 import ArticleVotes from "@/components/ArticleVotes";
@@ -126,7 +127,10 @@ export default async function RumorDetailPage({
         <section>
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{rumor.playerName}</h1>
-            <RumorFavoriteToggle playerName={rumor.playerName} />
+            <div className="flex items-center gap-1.5">
+              <InterestStarToggle playerName={rumor.playerName} />
+              <RumorFavoriteToggle playerName={rumor.playerName} />
+            </div>
           </div>
           <div className="mt-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
             <TeamBadge team={rumor.fromTeam} club={clubMap.get(rumor.fromTeam)} />
